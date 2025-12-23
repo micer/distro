@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "apps": [
+    {
+      "name": "BetVictor (Canada)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/bvca/BetVictorCanada-{version}.apk",
+      "packageName": "com.betvictor.bettingapp.ca"
+    },
+    {
+      "name": "TalkSPORT (Canada)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/tsbca/TalksportCanada-{version}.apk"
+    },
+    {
+      "name": "Biying (China)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/by/biyingAsiaCh-{version}.apk"
+    },
+    {
+      "name": "BetVictor (China)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ch/BetVictorAsia-{version}.apk",
+      "packageName": "com.betvictor.bettingapp.ch"
+    },
+    {
+      "name": "Parimatch (China)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/parimatch/parimatchAsiaCh-{version}.apk"
+    },
+    {
+      "name": "William Hill (China)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/wh/whillAsiaCh-{version}.apk"
+    },
+    {
+      "name": "Puntit (Global)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/globalPuntitFull/PuntitGlobal-{version}.apk"
+    },
+    {
+      "name": "Betano (UK, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukBetanoCasino/BetanoUkCasino-{version}.apk"
+    },
+    {
+      "name": "Betano (UK)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/betano/BetanoUk-{version}.apk"
+    },
+    {
+      "name": "Heart Bingo (UK, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/bingo/heartBingo-{version}.apk"
+    },
+    {
+      "name": "BetVictor (UK, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukBvCasino/BetVictorUkCasino-{version}.apk",
+      "packageName": "com.betvictor.casinoapp"
+    },
+    {
+      "name": "BetVictor (UK)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/uk/BetVictorUk-{version}.apk",
+      "packageName": "com.betvictor.bettingapp.uk"
+    },
+    {
+      "name": "Parimatch (UK, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukParimatchCasino/ParimatchUkCasino-{version}.apk"
+    },
+    {
+      "name": "Parimatch (UK)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/pmuk/ParimatchUk-{version}.apk"
+    },
+    {
+      "name": "Puntit (UK)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukPuntitFull/PuntitUk-{version}.apk"
+    },
+    {
+      "name": "SmoothSpins (UK, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/smoothspins/smoothSpins-{version}.apk"
+    },
+    {
+      "name": "TalkSport Vegas (UK, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukTalksportCasino/TalksportUkCasino-{version}.apk"
+    },
+    {
+      "name": "TalkSport (UK)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/tsb/TalksportUk-{version}.apk"
+    },
+    {
+      "name": "Wiz Slots (New Zealand, Casino)",
+      "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/zealandWizslotsCasino/WizslotsZealandCasino-{version}.apk"
+    }
+  ]
+}
