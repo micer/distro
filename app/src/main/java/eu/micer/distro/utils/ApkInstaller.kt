@@ -2,10 +2,10 @@ package eu.micer.distro.utils
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import timber.log.Timber
 import java.io.File
 
@@ -40,5 +40,21 @@ class ApkInstaller(private val context: Context) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(intent)
+    }
+
+    fun uninstallApp(packageName: String): Result<Unit> {
+        return try {
+            Timber.d("Uninstalling app: $packageName")
+            val intent = Intent(Intent.ACTION_DELETE).apply {
+                data = "package:$packageName".toUri()
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+            Timber.i("Uninstallation intent launched successfully")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to uninstall app: $packageName")
+            Result.failure(e)
+        }
     }
 }

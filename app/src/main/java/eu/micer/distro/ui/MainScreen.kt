@@ -1,5 +1,7 @@
 package eu.micer.distro.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,24 +16,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Circle
-
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -45,15 +60,23 @@ import eu.micer.distro.ui.theme.SuccessGreen
 import eu.micer.distro.viewmodel.AppConfigWithStatus
 import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
     appsWithStatus: List<AppConfigWithStatus>,
     onAppClick: (Long) -> Unit,
     onNavigateToConfig: () -> Unit,
     onRefreshInstallationStatus: () -> Unit = {},
+    onBulkDownload: (List<Long>, String) -> Unit = { _, _ -> },
+    onBulkUninstall: (List<Long>) -> Unit = { _ -> },
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var selectedIds by remember { mutableStateOf(setOf<Long>()) }
+    val isSelectionMode = selectedIds.isNotEmpty()
+
+    var showVersionDialog by remember { mutableStateOf(false) }
+    var showUninstallDialog by remember { mutableStateOf(false) }
+    var isFabExpanded by remember { mutableStateOf(false) }
 
     // Refresh installation status when the screen resumes
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -72,26 +95,64 @@ fun MainScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Distro - APK Distribution") },
-                actions = {
-                    // New Settings/Config action
-                    IconButton(onClick = { onNavigateToConfig() }) {
-                        Icon(
-                            painterResource(id = fontAwesomeIcons.fontawesome_ic_sliders_h_solid),
-                            contentDescription = "App Configuration",
-                            tint = androidx.compose.ui.graphics.Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue,
-                    titleContentColor = androidx.compose.ui.graphics.Color.White,
-                    actionIconContentColor = androidx.compose.ui.graphics.Color.White
+            if (isSelectionMode) {
+                SelectionTopAppBar(
+                    selectedCount = selectedIds.size,
+                    onCloseSelection = { selectedIds = emptySet() },
+                    onSelectAll = {
+                        selectedIds = appsWithStatus.map { it.config.id }.toSet()
+                    },
+                    onDeselectAll = { selectedIds = emptySet() },
+                    isAllSelected = selectedIds.size == appsWithStatus.size
                 )
-            )
+            } else {
+                TopAppBar(
+                    title = { Text("Distro - APK Distribution") },
+                    actions = {
+                        // New Settings/Config action
+                        IconButton(onClick = { onNavigateToConfig() }) {
+                            Icon(
+                                painterResource(id = fontAwesomeIcons.fontawesome_ic_sliders_h_solid),
+                                contentDescription = "App Configuration",
+                                tint = androidx.compose.ui.graphics.Color.White
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = PrimaryBlue,
+                        titleContentColor = androidx.compose.ui.graphics.Color.White,
+                        actionIconContentColor = androidx.compose.ui.graphics.Color.White
+                    )
+                )
+            }
         },
-
+        floatingActionButton = {
+            BulkActionsFab(
+                isExpanded = isFabExpanded,
+                onToggleExpand = { isFabExpanded = !isFabExpanded },
+                onDownloadAll = {
+                    showVersionDialog = true
+                    isFabExpanded = false
+                },
+                onUninstallAll = {
+                    showUninstallDialog = true
+                    isFabExpanded = false
+                },
+                onEnterSelectionMode = {
+                    if (selectedIds.isEmpty()) {
+                        selectedIds = setOf(appsWithStatus.firstOrNull()?.config?.id ?: -1L).filter { it != -1L }.toSet()
+                    }
+                    isFabExpanded = false
+                },
+                isSelectionMode = isSelectionMode,
+                onDownloadSelected = {
+                    showVersionDialog = true
+                },
+                onUninstallSelected = {
+                    showUninstallDialog = true
+                }
+            )
+        }
     ) { padding ->
         if (appsWithStatus.isEmpty()) {
             EmptyState(modifier = Modifier.padding(padding))
@@ -104,35 +165,78 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(appsWithStatus, key = { it.config.id }) { appWithStatus ->
+                    val id = appWithStatus.config.id
                     AppItem(
                         appWithStatus = appWithStatus,
-                        onClick = { onAppClick(appWithStatus.config.id) }
+                        onClick = {
+                            if (isSelectionMode) {
+                                selectedIds = if (selectedIds.contains(id)) {
+                                    selectedIds - id
+                                } else {
+                                    selectedIds + id
+                                }
+                            } else {
+                                onAppClick(id)
+                            }
+                        },
+                        onLongClick = {
+                            if (!isSelectionMode) {
+                                selectedIds = setOf(id)
+                            }
+                        },
+                        selected = selectedIds.contains(id),
+                        selectionMode = isSelectionMode
                     )
                 }
             }
         }
     }
-}
 
-@Composable
-fun EmptyState(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "No apps configured",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Go to App Configuration to add your first app",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+    if (showVersionDialog) {
+        VersionInputDialog(
+            onDismiss = { showVersionDialog = false },
+            onConfirm = { version ->
+                val idsToDownload = if (isSelectionMode) selectedIds.toList() else appsWithStatus.map { it.config.id }
+                onBulkDownload(idsToDownload, version)
+                showVersionDialog = false
+                selectedIds = emptySet()
+            }
+        )
+    }
+
+    if (showUninstallDialog) {
+        val idsToUninstall = if (isSelectionMode) {
+            appsWithStatus
+                .filter { selectedIds.contains(it.config.id) && it.installedInfo.isInstalled }
+                .map { it.config.id }
+        } else {
+            appsWithStatus
+                .filter { it.installedInfo.isInstalled }
+                .map { it.config.id }
+        }
+        val count = idsToUninstall.size
+        
+        if (count == 0) {
+            showUninstallDialog = false
+        } else {
+            AlertDialog(
+                onDismissRequest = { showUninstallDialog = false },
+                title = { Text("Bulk Uninstall") },
+                text = { Text("Are you sure you want to uninstall $count app(s)?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onBulkUninstall(idsToUninstall)
+                        showUninstallDialog = false
+                        selectedIds = emptySet()
+                    }) {
+                        Text("Uninstall", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUninstallDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
     }
@@ -140,9 +244,144 @@ fun EmptyState(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun SelectionTopAppBar(
+    selectedCount: Int,
+    onCloseSelection: () -> Unit,
+    onSelectAll: () -> Unit,
+    onDeselectAll: () -> Unit,
+    isAllSelected: Boolean
+) {
+    TopAppBar(
+        title = { Text("$selectedCount selected") },
+        navigationIcon = {
+            IconButton(onClick = onCloseSelection) {
+                Icon(Icons.Default.Close, contentDescription = "Close selection")
+            }
+        },
+        actions = {
+            IconButton(onClick = if (isAllSelected) onDeselectAll else onSelectAll) {
+                Icon(
+                    if (isAllSelected) Icons.Default.Close else Icons.Default.Check,
+                    contentDescription = if (isAllSelected) "Deselect all" else "Select all"
+                )
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            actionIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    )
+}
+
+@Composable
+fun BulkActionsFab(
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onDownloadAll: () -> Unit,
+    onUninstallAll: () -> Unit,
+    onEnterSelectionMode: () -> Unit,
+    isSelectionMode: Boolean,
+    onDownloadSelected: () -> Unit,
+    onUninstallSelected: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (isExpanded && !isSelectionMode) {
+            FloatingActionButton(
+                onClick = onDownloadAll,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = "Download All")
+            }
+            FloatingActionButton(
+                onClick = onUninstallAll,
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Uninstall All")
+            }
+            FloatingActionButton(
+                onClick = onEnterSelectionMode,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = "Select Apps")
+            }
+        }
+
+        if (isSelectionMode) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FloatingActionButton(
+                    onClick = onUninstallSelected,
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = "Uninstall Selected")
+                }
+                FloatingActionButton(
+                    onClick = onDownloadSelected,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = "Download Selected")
+                }
+            }
+        } else {
+            FloatingActionButton(onClick = onToggleExpand) {
+                Icon(
+                    if (isExpanded) Icons.Default.Close else Icons.Default.Menu,
+                    contentDescription = "Bulk Actions"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun VersionInputDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var version by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Enter version to download") },
+        text = {
+            OutlinedTextField(
+                value = version,
+                onValueChange = { version = it },
+                label = { Text("Version") },
+                placeholder = { Text("e.g. 1.0.0") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(version) },
+                enabled = version.isNotBlank()
+            ) {
+                Text("Download")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
 fun AppItem(
     appWithStatus: AppConfigWithStatus,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
+    selected: Boolean = false,
+    selectionMode: Boolean = false
 ) {
 
     val app = appWithStatus.config
@@ -153,16 +392,34 @@ fun AppItem(
 
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = if (selected) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            if (selectionMode) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onClick() },
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 // App Name
                 Text(
@@ -234,10 +491,30 @@ fun AppItem(
                     maxLines = 2
                 )
             }
-
-
         }
     }
+}
 
-
+@Composable
+fun EmptyState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "No apps configured",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Go to App Configuration to add your first app",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }

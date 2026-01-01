@@ -53,6 +53,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
     
     private var currentDownloadAppId: Long? = null
+    private val uninstallQueue = mutableListOf<Long>()
     
     // Trigger to refresh installation status
     private val _refreshTrigger = MutableStateFlow(0)
@@ -163,38 +164,39 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun downloadAndInstallApk(appId: Long, urlPattern: String, versionName: String) {
+        viewModelScope.launch {
+            downloadAndInstallApkInternal(appId, urlPattern, versionName)
+        }
+    }
+
+    private suspend fun downloadAndInstallApkInternal(appId: Long, urlPattern: String, versionName: String) {
         currentDownloadAppId = appId
         val url = urlPattern.replace("{version}", versionName)
         
-        viewModelScope.launch(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             downloadManager.downloadApk(url).collect { state ->
                 withContext(Dispatchers.Main) {
                     _downloadState.value = state
                 }
                 
                 when (state) {
-                    is DownloadState.Downloading -> {
-                        // Progress updates happen automatically
-                    }
                     is DownloadState.Success -> {
-                        
                         // Update app config with APK metadata if available
                         state.metadata?.let { metadata ->
-                            getAppById(appId) { existingApp ->
-                                existingApp?.let { app ->
-                                    val updatedApp = app.copy(
-                                        name = if (app.name.isBlank() || app.name == "App") metadata.appLabel else app.name,
-                                        packageName = metadata.packageName,
-                                        versionName = metadata.versionName,
-                                        versionCode = metadata.versionCode,
-                                        appLabel = metadata.appLabel
-                                    )
-                                    updateApp(updatedApp)
-                                }
+                            val app = repository.getAppById(appId)
+                            app?.let { 
+                                val updatedApp = it.copy(
+                                    name = if (it.name.isBlank() || it.name == "App") metadata.appLabel else it.name,
+                                    packageName = metadata.packageName,
+                                    versionName = metadata.versionName,
+                                    versionCode = metadata.versionCode,
+                                    appLabel = metadata.appLabel
+                                )
+                                repository.updateApp(updatedApp)
                             }
                         }
                         
-                        // Trigger installation (needs to be on Main thread for UI)
+                        // Trigger installation
                         withContext(Dispatchers.Main) {
                             val result = apkInstaller.installApk(state.file)
                             if (result.isFailure) {
@@ -212,6 +214,85 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun bulkDownloadAndInstall(appIds: List<Long>, versionName: String) {
+        viewModelScope.launch {
+            for (appId in appIds) {
+                val app = repository.getAppById(appId) ?: continue
+                downloadAndInstallApkInternal(appId, app.urlPattern, versionName)
+            }
+        }
+    }
+
+    fun bulkUninstall(appIds: List<Long>) {
+        viewModelScope.launch {
+            uninstallQueue.clear()
+            var skippedCount = 0
+            // Only add apps that have a package name
+            for (appId in appIds) {
+                val app = repository.getAppById(appId)
+                if (app?.packageName != null) {
+                    Timber.d("Adding ${app.packageName} to uninstall queue")
+                    uninstallQueue.add(appId)
+                } else {
+                    skippedCount++
+                    Timber.w("App $appId (${app?.name}) has no package name, cannot uninstall")
+                }
+            }
+            Timber.d("Uninstall queue size: ${uninstallQueue.size}, skipped: $skippedCount")
+            
+            if (skippedCount > 0) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        "Skipped $skippedCount app(s) without package name",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            
+            if (uninstallQueue.isEmpty()) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        "No apps to uninstall (missing package names)",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                processNextUninstall()
+            }
+        }
+    }
+
+    private fun processNextUninstall() {
+        Timber.d("processNextUninstall called, queue size: ${uninstallQueue.size}")
+        if (uninstallQueue.isNotEmpty()) {
+            val appId = uninstallQueue.removeAt(0)
+            val remainingCount = uninstallQueue.size
+            viewModelScope.launch {
+                val app = repository.getAppById(appId)
+                app?.packageName?.let { pkg ->
+                    Timber.d("Uninstalling package: $pkg (${remainingCount} remaining)")
+                    withContext(Dispatchers.Main) {
+                        if (remainingCount > 0) {
+                            Toast.makeText(
+                                getApplication(),
+                                "Uninstalling ${app.name.ifBlank { pkg }}... ($remainingCount more)",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                    apkInstaller.uninstallApp(pkg)
+                } ?: run {
+                    Timber.w("App $appId has no package name, skipping")
+                    processNextUninstall()
+                }
+            }
+        } else {
+            Timber.d("Uninstall queue is empty - all uninstalls completed")
+        }
+    }
     
     fun resetDownloadState() {
         _downloadState.value = DownloadState.Idle
@@ -224,6 +305,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun refreshInstallationStatus() {
         _refreshTrigger.value += 1
+        if (uninstallQueue.isNotEmpty()) {
+            processNextUninstall()
+        }
     }
     
     override fun onCleared() {

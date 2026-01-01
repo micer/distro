@@ -54,7 +54,9 @@ fun DistroAppContent() {
                 appsWithStatus = appsWithStatus,
                 onAppClick = { appId -> navController.navigate("download/$appId") },
                 onNavigateToConfig = { navController.navigate("config") },
-                onRefreshInstallationStatus = { viewModel.refreshInstallationStatus() }
+                onRefreshInstallationStatus = { viewModel.refreshInstallationStatus() },
+                onBulkDownload = { ids: List<Long>, version: String -> viewModel.bulkDownloadAndInstall(ids, version) },
+                onBulkUninstall = { ids: List<Long> -> viewModel.bulkUninstall(ids) }
             )
         }
         
