@@ -13,7 +13,11 @@ import java.util.concurrent.TimeUnit
 
 sealed class DownloadState {
     object Idle : DownloadState()
-    data class Downloading(val progress: Float, val isIndeterminate: Boolean = false) : DownloadState()
+    data class Downloading(
+        val progress: Float, 
+        val isIndeterminate: Boolean = false,
+        val downloadedBytes: Long = 0L
+    ) : DownloadState()
     data class Success(val file: File, val metadata: ApkMetadata?) : DownloadState()
     data class Error(val message: String) : DownloadState()
 }
@@ -47,10 +51,10 @@ class DownloadManager(private val context: Context) {
                 
                 val responseBody = response.body
                 val contentLength = responseBody.contentLength()
-                if (contentLength <= 0L) {
-                    Timber.e("Response body is null or Content-Length is missing/zero")
-                    emit(DownloadState.Error("Invalid response from server"))
-                    return@flow
+                val isIndeterminate = contentLength <= 0L
+                
+                if (isIndeterminate) {
+                    Timber.w("Content-Length is missing/zero - using indeterminate progress")
                 }
                 
                 val fileName = "temp_${System.currentTimeMillis()}.apk"
@@ -74,14 +78,24 @@ class DownloadManager(private val context: Context) {
                             downloadedBytes += bytesRead
                             
                             val currentTime = System.currentTimeMillis()
-                            val currentProgress = downloadedBytes.toFloat() / contentLength.toFloat()
                             val timeSinceLastEmit = currentTime - lastEmitTime
-                            val progressDelta = currentProgress - lastEmittedProgress
                             
-                            if (timeSinceLastEmit >= minTimeDelta || progressDelta >= minProgressDelta) {
-                                emit(DownloadState.Downloading(currentProgress, false))
-                                lastEmitTime = currentTime
-                                lastEmittedProgress = currentProgress
+                            if (isIndeterminate) {
+                                // For indeterminate progress, just emit periodically with downloaded bytes
+                                if (timeSinceLastEmit >= minTimeDelta) {
+                                    emit(DownloadState.Downloading(0f, true, downloadedBytes))
+                                    lastEmitTime = currentTime
+                                }
+                            } else {
+                                // For determinate progress, calculate percentage
+                                val currentProgress = downloadedBytes.toFloat() / contentLength.toFloat()
+                                val progressDelta = currentProgress - lastEmittedProgress
+                                
+                                if (timeSinceLastEmit >= minTimeDelta || progressDelta >= minProgressDelta) {
+                                    emit(DownloadState.Downloading(currentProgress, false, downloadedBytes))
+                                    lastEmitTime = currentTime
+                                    lastEmittedProgress = currentProgress
+                                }
                             }
                         }
                     }
@@ -89,11 +103,12 @@ class DownloadManager(private val context: Context) {
                 
                 val totalTime = System.currentTimeMillis() - downloadStartTime
                 val avgSpeed = if (totalTime > 0) (downloadedBytes / 1024.0) / (totalTime / 1000.0) else 0.0
-                Timber.d("Download completed: ${contentLength / (1024 * 1024)}MB in ${totalTime}ms (${"%.1f".format(avgSpeed)} KB/s)")
+                val sizeInMB = downloadedBytes / (1024 * 1024)
+                Timber.d("Download completed: ${sizeInMB}MB in ${totalTime}ms (${"%.1f".format(avgSpeed)} KB/s)")
                 
-                // Ensure we emit 100%
-                if (lastEmittedProgress < 1.0f) {
-                    emit(DownloadState.Downloading(1.0f, false))
+                // Ensure we emit 100% for determinate progress
+                if (!isIndeterminate && lastEmittedProgress < 1.0f) {
+                    emit(DownloadState.Downloading(1.0f, false, downloadedBytes))
                 }
                 
                 // Parse APK metadata

@@ -44,16 +44,53 @@ class ApkInstaller(private val context: Context) {
 
     fun uninstallApp(packageName: String): Result<Unit> {
         return try {
-            Timber.d("Uninstalling app: $packageName")
-            val intent = Intent(Intent.ACTION_DELETE).apply {
-                data = "package:$packageName".toUri()
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            Timber.d("=== UNINSTALL DEBUG START ===")
+            Timber.d("Package name: '$packageName'")
+            Timber.d("Context type: ${context.javaClass.name}")
+            Timber.d("Context package: ${context.packageName}")
+            
+            // Build the URI
+            val uriString = "package:$packageName"
+            Timber.d("URI string: '$uriString'")
+            val uri = Uri.parse(uriString)
+            Timber.d("Parsed URI: scheme='${uri.scheme}', schemeSpecificPart='${uri.schemeSpecificPart}', full='$uri'")
+            
+            // Build the intent
+            val intent = Intent(Intent.ACTION_DELETE)
+            intent.data = uri
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            Timber.d("Intent action: '${intent.action}'")
+            Timber.d("Intent data: '${intent.data}'")
+            Timber.d("Intent flags: ${intent.flags} (NEW_TASK flag value: ${Intent.FLAG_ACTIVITY_NEW_TASK})")
+            Timber.d("Intent component: ${intent.component}")
+            Timber.d("Intent package: ${intent.`package`}")
+            
+            // CRITICAL: Check if intent can be resolved by the system
+            val pm = context.packageManager
+            val resolveInfo = pm.resolveActivity(intent, 0)
+            if (resolveInfo != null) {
+                Timber.d("✓ Intent CAN be resolved")
+                Timber.d("  Resolver: ${resolveInfo.activityInfo.packageName}")
+                Timber.d("  Activity: ${resolveInfo.activityInfo.name}")
+                Timber.d("  Enabled: ${resolveInfo.activityInfo.enabled}")
+                Timber.d("  Exported: ${resolveInfo.activityInfo.exported}")
+            } else {
+                Timber.e("✗ Intent CANNOT be resolved - NO activity can handle ACTION_DELETE!")
+                Timber.e("This means the system has no uninstaller activity registered")
+                return Result.failure(Exception("No activity found to handle ACTION_DELETE"))
             }
+            
+            Timber.d("Calling context.startActivity()...")
             context.startActivity(intent)
-            Timber.i("Uninstallation intent launched successfully")
+            Timber.d("startActivity() returned without exception")
+            Timber.d("=== UNINSTALL DEBUG END ===")
+            
             Result.success(Unit)
         } catch (e: Exception) {
-            Timber.e(e, "Failed to uninstall app: $packageName")
+            Timber.e(e, "Exception during uninstall!")
+            Timber.e("Exception type: ${e.javaClass.name}")
+            Timber.e("Exception message: ${e.message}")
+            Timber.e("Stack trace: ${e.stackTraceToString()}")
             Result.failure(e)
         }
     }

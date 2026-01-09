@@ -274,15 +274,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val app = repository.getAppById(appId)
                 app?.packageName?.let { pkg ->
                     Timber.d("Uninstalling package: $pkg (${remainingCount} remaining)")
-                    withContext(Dispatchers.Main) {
-                        if (remainingCount > 0) {
-                            Toast.makeText(
-                                getApplication(),
-                                "Uninstalling ${app.name.ifBlank { pkg }}... ($remainingCount more)",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
                     apkInstaller.uninstallApp(pkg)
                 } ?: run {
                     Timber.w("App $appId has no package name, skipping")

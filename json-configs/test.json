@@ -1,0 +1,35 @@
+{
+    "version": "1.0",
+    "apps": [
+        {
+            "name": "William Hill (China)",
+            "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/wh/whillAsiaCh-{version}.apk",
+            "packageName": ""
+        },
+        {
+            "name": "Betano (UK)",
+            "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/betano/BetanoUk-{version}.apk",
+            "packageName": "uk.co.betano.bettingapp"
+        },
+        {
+            "name": "BetVictor (UK)",
+            "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/uk/BetVictorUk-{version}.apk",
+            "packageName": "com.betvictor.bettingapp.uk"
+        },
+        {
+            "name": "Parimatch (UK)",
+            "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/pmuk/ParimatchUk-{version}.apk",
+            "packageName": "com.parimatch.pmuk014"
+        },
+        {
+            "name": "Puntit (UK)",
+            "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukPuntitFull/PuntitUk-{version}.apk",
+            "packageName": "uk.co.puntit.app"
+        },
+        {
+            "name": "TalkSport (UK)",
+            "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/tsb/TalksportUk-{version}.apk",
+            "packageName": "com.talksportsbet.bettingapp"
+        }
+    ]
+}

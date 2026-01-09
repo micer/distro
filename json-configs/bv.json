@@ -39,12 +39,12 @@
     {
       "name": "Betano (UK, Casino)",
       "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/ukBetanoCasino/BetanoUkCasino-{version}.apk",
-      "packageName": "com.betano.casinoapp"
+      "packageName": "uk.co.betano.casinoapp"
     },
     {
       "name": "Betano (UK)",
       "urlPattern": "https://test.gaming-assets.com/nodejs/assets/apk/betano/BetanoUk-{version}.apk",
-      "packageName": "com.betano.bettingapp"
+      "packageName": "uk.co.betano.bettingapp"
     },
     {
       "name": "Heart Bingo (UK, Casino)",

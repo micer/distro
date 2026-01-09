@@ -20,6 +20,15 @@ import eu.micer.distro.ui.theme.SuccessGreen
 import eu.micer.distro.utils.DownloadState
 import timber.log.Timber
 
+private fun formatBytes(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> String.format("%.2f KB", bytes / 1024.0)
+        bytes < 1024 * 1024 * 1024 -> String.format("%.2f MB", bytes / (1024.0 * 1024.0))
+        else -> String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0))
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadScreen(
@@ -95,6 +104,33 @@ fun DownloadScreen(
                 enabled = downloadState !is DownloadState.Downloading
             )
             
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { versionName = "latest" },
+                    modifier = Modifier.weight(1f),
+                    enabled = downloadState !is DownloadState.Downloading
+                ) {
+                    Text("Latest", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = { versionName = "NIGHTLY-latest" },
+                    modifier = Modifier.weight(1f),
+                    enabled = downloadState !is DownloadState.Downloading
+                ) {
+                    Text("NIGHTLY-latest", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = { versionName = "RC-latest" },
+                    modifier = Modifier.weight(1f),
+                    enabled = downloadState !is DownloadState.Downloading
+                ) {
+                    Text("RC-latest", maxLines = 1)
+                }
+            }
+            
             if (versionName.isNotBlank()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -143,11 +179,19 @@ fun DownloadScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (downloadState.isIndeterminate) "Connecting..." else "Downloading...",
+                                    text = "Downloading...",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
-                                if (!downloadState.isIndeterminate) {
+                                if (downloadState.isIndeterminate) {
+                                    // Show downloaded bytes for indeterminate progress
+                                    Text(
+                                        text = formatBytes(downloadState.downloadedBytes),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                } else {
+                                    // Show percentage for determinate progress
                                     Text(
                                         text = String.format("%.2f%%", animatedProgress * 100),
                                         style = MaterialTheme.typography.bodyMedium,
