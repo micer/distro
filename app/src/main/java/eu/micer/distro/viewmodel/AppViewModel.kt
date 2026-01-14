@@ -72,18 +72,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // Combined flow with installation status
     val appsWithStatus: StateFlow<List<AppConfigWithStatus>>
     
-    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
-    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
-    
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
-    val importState: StateFlow<ImportState> = _importState.asStateFlow()
-    
-    private val _bulkDownloadState = MutableStateFlow(BulkDownloadState())
-    val bulkDownloadState: StateFlow<BulkDownloadState> = _bulkDownloadState.asStateFlow()
-    
-    private var currentDownloadAppId: Long? = null
-    private val uninstallQueue = mutableListOf<Long>()
-    private var bulkDownloadJob: Job? = null
+val importState: StateFlow<ImportState> = _importState.asStateFlow()
+
+private val _bulkDownloadState = MutableStateFlow(BulkDownloadState())
+val bulkDownloadState: StateFlow<BulkDownloadState> = _bulkDownloadState.asStateFlow()
+
+private val uninstallQueue = mutableListOf<Long>()
+private var bulkDownloadJob: Job? = null
     
     // Trigger to refresh installation status
     private val _refreshTrigger = MutableStateFlow(0)
@@ -190,61 +186,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val app = repository.getAppById(id)
             callback(app)
-        }
-    }
-    
-    fun downloadAndInstallApk(appId: Long, urlPattern: String, versionName: String) {
-        viewModelScope.launch {
-            downloadAndInstallApkInternal(appId, urlPattern, versionName)
-        }
-    }
-
-    private suspend fun downloadAndInstallApkInternal(appId: Long, urlPattern: String, versionName: String) {
-        currentDownloadAppId = appId
-        val url = urlPattern.replace("{version}", versionName)
-        
-        withContext(Dispatchers.IO) {
-            downloadManager.downloadApk(url).collect { state ->
-                withContext(Dispatchers.Main) {
-                    _downloadState.value = state
-                }
-                
-                when (state) {
-                    is DownloadState.Success -> {
-                        // Update app config with APK metadata if available
-                        state.metadata?.let { metadata ->
-                            val app = repository.getAppById(appId)
-                            app?.let {
-                                val updatedApp = it.copy(
-                                    name = if (it.name.isBlank() || it.name == "App") metadata.appLabel else it.name,
-                                    packageName = metadata.packageName,
-                                    versionName = metadata.versionName,
-                                    versionCode = metadata.versionCode,
-                                    appLabel = metadata.appLabel
-                                )
-                                repository.updateApp(updatedApp)
-                            }
-                        }
-
-                        // Trigger installation
-                        withContext(Dispatchers.Main) {
-                            val result = apkInstaller.installApk(state.file)
-                            if (result.isFailure) {
-                                _downloadState.value = DownloadState.Error(
-                                    result.exceptionOrNull()?.message ?: "Installation failed"
-                                )
-                            }
-                            // Note: We don't delete the APK immediately because the system installer
-                            // still needs to access it via FileProvider. The file will be cleaned up
-                            // when the app resumes/refreshe instead.
-                        }
-                    }
-                    is DownloadState.Error -> {
-                        Timber.e("Download error: ${state.message}")
-                    }
-                    else -> {}
-                }
-            }
         }
     }
 
@@ -446,12 +387,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         // Clean up any partial APK files from cache immediately
         cleanupAllApkFiles()
     }
-    
-    fun resetDownloadState() {
-        _downloadState.value = DownloadState.Idle
-        currentDownloadAppId = null
-    }
-    
+
     /**
      * Refreshes the installation status of all apps
      * Call this when returning to the main screen to check if any apps were installed

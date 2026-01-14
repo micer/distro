@@ -18,7 +18,6 @@ import androidx.navigation.navArgument
 import eu.micer.distro.ui.AddEditAppScreen
 import eu.micer.distro.ui.AppConfigScreen
 import eu.micer.distro.ui.BulkDownloadProgressDialog
-import eu.micer.distro.ui.DownloadScreen
 import eu.micer.distro.ui.MainScreen
 import eu.micer.distro.ui.theme.DistroTheme
 import eu.micer.distro.viewmodel.AppViewModel
@@ -45,9 +44,8 @@ fun DistroAppContent() {
     val navController = rememberNavController()
     val viewModel: AppViewModel = viewModel()
     val appsWithStatus by viewModel.appsWithStatus.collectAsState()
-    val downloadState by viewModel.downloadState.collectAsState()
-    val importState by viewModel.importState.collectAsState()
-    val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
+val importState by viewModel.importState.collectAsState()
+val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
     
     // Show bulk download progress dialog when active or when there are items to display
     if (bulkDownloadState.items.isNotEmpty()) {
@@ -62,7 +60,6 @@ fun DistroAppContent() {
         composable("main") {
             MainScreen(
                 appsWithStatus = appsWithStatus,
-                onAppClick = { appId -> navController.navigate("download/$appId") },
                 onNavigateToConfig = { navController.navigate("config") },
                 onRefreshInstallationStatus = { viewModel.refreshInstallationStatus() },
                 onBulkDownload = { ids: List<Long>, version: String -> viewModel.bulkDownloadAndInstall(ids, version) },
@@ -79,38 +76,7 @@ fun DistroAppContent() {
                 }
             )
         }
-        
-        composable(
-            route = "download/{appId}",
-            arguments = listOf(navArgument("appId") { type = NavType.LongType })
-        ) { backStackEntry ->
-            val appId = backStackEntry.arguments?.getLong("appId") ?: 0L
-            var appName by remember { mutableStateOf<String?>(null) }
-            var urlPattern by remember { mutableStateOf("") }
-            
-            LaunchedEffect(appId) {
-                viewModel.getAppById(appId) { app ->
-                    if (app != null) {
-                        appName = app.name.ifBlank { app.appLabel ?: "App" }
-                        urlPattern = app.urlPattern
-                    }
-                }
-            }
-            
-            appName?.let { name ->
-                DownloadScreen(
-                    appName = name,
-                    urlPattern = urlPattern,
-                    downloadState = downloadState,
-                    onNavigateBack = { navController.popBackStack() },
-                    onDownload = { versionName ->
-                        viewModel.downloadAndInstallApk(appId, urlPattern, versionName)
-                    },
-                    onResetState = { viewModel.resetDownloadState() }
-                )
-            }
-        }
-        
+
         composable(
             route = "edit_app/{appId}",
             arguments = listOf(navArgument("appId") { type = NavType.LongType })

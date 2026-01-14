@@ -65,7 +65,6 @@ import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 @Composable
 fun MainScreen(
     appsWithStatus: List<AppConfigWithStatus>,
-    onAppClick: (Long) -> Unit,
     onNavigateToConfig: () -> Unit,
     onRefreshInstallationStatus: () -> Unit = {},
     onBulkDownload: (List<Long>, String) -> Unit = { _, _ -> },
@@ -170,16 +169,18 @@ fun MainScreen(
                     AppItem(
                         appWithStatus = appWithStatus,
                         onClick = {
-                            if (isSelectionMode) {
-                                selectedIds = if (selectedIds.contains(id)) {
-                                    selectedIds - id
-                                } else {
-                                    selectedIds + id
-                                }
-                            } else {
-                                onAppClick(id)
-                            }
-                        },
+                    if (isSelectionMode) {
+                        selectedIds = if (selectedIds.contains(id)) {
+                            selectedIds - id
+                        } else {
+                            selectedIds + id
+                        }
+                    } else {
+                        // For single app click, select it and show version dialog (uses bulk download)
+                        selectedIds = setOf(id)
+                        showVersionDialog = true
+                    }
+                },
                         onLongClick = {
                             if (!isSelectionMode) {
                                 selectedIds = setOf(id)
