@@ -33,6 +33,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -350,13 +351,48 @@ fun VersionInputDialog(
         onDismissRequest = onDismiss,
         title = { Text("Enter version to download") },
         text = {
-            OutlinedTextField(
-                value = version,
-                onValueChange = { version = it },
-                label = { Text("Version") },
-                placeholder = { Text("e.g. 1.0.0") },
-                singleLine = true
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = version,
+                    onValueChange = { version = it },
+                    label = { Text("Version") },
+                    placeholder = { Text("e.g. 1.0.0") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Text(
+                    text = "Quick select:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { version = "latest" },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Latest", maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = { version = "NIGHTLY-latest" },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("NIGHTLY", maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = { version = "RC-latest" },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("RC", maxLines = 1)
+                    }
+                }
+            }
         },
         confirmButton = {
             Button(

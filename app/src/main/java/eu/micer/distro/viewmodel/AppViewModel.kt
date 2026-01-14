@@ -17,10 +17,16 @@ import eu.micer.distro.utils.DownloadState
 import eu.micer.distro.utils.InstalledAppChecker
 import eu.micer.distro.utils.InstalledAppInfo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.File
 
 data class AppConfigWithStatus(
     val config: AppConfig,
@@ -33,6 +39,26 @@ sealed class ImportState {
     data class Success(val count: Int) : ImportState()
     data class Error(val message: String) : ImportState()
 }
+
+// Represents the download state for a single app in a bulk operation
+data class BulkDownloadItem(
+    val appId: Long,
+    val appName: String,
+    val packageName: String?,
+    val urlPattern: String,
+    val versionName: String,
+    val state: DownloadState,
+    val order: Int // Position in the queue
+)
+
+// Overall state of the bulk download operation
+data class BulkDownloadState(
+    val items: List<BulkDownloadItem> = emptyList(),
+    val isActive: Boolean = false,
+    val completedCount: Int = 0,
+    val failedCount: Int = 0,
+    val totalCount: Int = 0
+)
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -52,8 +78,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
     
+    private val _bulkDownloadState = MutableStateFlow(BulkDownloadState())
+    val bulkDownloadState: StateFlow<BulkDownloadState> = _bulkDownloadState.asStateFlow()
+    
     private var currentDownloadAppId: Long? = null
     private val uninstallQueue = mutableListOf<Long>()
+    private var bulkDownloadJob: Job? = null
     
     // Trigger to refresh installation status
     private val _refreshTrigger = MutableStateFlow(0)
@@ -184,7 +214,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         // Update app config with APK metadata if available
                         state.metadata?.let { metadata ->
                             val app = repository.getAppById(appId)
-                            app?.let { 
+                            app?.let {
                                 val updatedApp = it.copy(
                                     name = if (it.name.isBlank() || it.name == "App") metadata.appLabel else it.name,
                                     packageName = metadata.packageName,
@@ -195,7 +225,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                                 repository.updateApp(updatedApp)
                             }
                         }
-                        
+
                         // Trigger installation
                         withContext(Dispatchers.Main) {
                             val result = apkInstaller.installApk(state.file)
@@ -204,6 +234,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                                     result.exceptionOrNull()?.message ?: "Installation failed"
                                 )
                             }
+                            // Note: We don't delete the APK immediately because the system installer
+                            // still needs to access it via FileProvider. The file will be cleaned up
+                            // when the app resumes/refreshe instead.
                         }
                     }
                     is DownloadState.Error -> {
@@ -216,10 +249,131 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun bulkDownloadAndInstall(appIds: List<Long>, versionName: String) {
-        viewModelScope.launch {
-            for (appId in appIds) {
-                val app = repository.getAppById(appId) ?: continue
-                downloadAndInstallApkInternal(appId, app.urlPattern, versionName)
+        // Cancel any existing bulk download
+        bulkDownloadJob?.cancel()
+        
+        bulkDownloadJob = viewModelScope.launch {
+            // Prepare the download list
+            val downloadItems = appIds.mapIndexedNotNull { index, appId ->
+                val app = repository.getAppById(appId)
+                app?.let {
+                    BulkDownloadItem(
+                        appId = appId,
+                        appName = app.name.ifBlank { app.appLabel ?: "App" },
+                        packageName = app.packageName,
+                        urlPattern = app.urlPattern,
+                        versionName = versionName,
+                        state = DownloadState.Idle,
+                        order = index
+                    )
+                }
+            }
+            
+            // Initialize bulk download state
+            _bulkDownloadState.value = BulkDownloadState(
+                items = downloadItems,
+                isActive = true,
+                completedCount = 0,
+                failedCount = 0,
+                totalCount = downloadItems.size
+            )
+            
+            // Semaphore to limit concurrent downloads to 3
+            val semaphore = Semaphore(10)
+            
+            // Launch parallel downloads
+            val jobs = downloadItems.map { item ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        downloadSingleAppInBulk(item)
+                    }
+                }
+            }
+            
+            // Wait for all downloads to complete
+            jobs.awaitAll()
+            
+            // Mark bulk download as complete
+            _bulkDownloadState.update { state ->
+                state.copy(isActive = false)
+            }
+        }
+    }
+
+    private suspend fun downloadSingleAppInBulk(item: BulkDownloadItem) {
+        try {
+            val url = item.urlPattern.replace("{version}", item.versionName)
+            
+            withContext(Dispatchers.IO) {
+                downloadManager.downloadApk(url).collect { state ->
+                    // Update this specific item's state
+                    _bulkDownloadState.update { bulkState ->
+                        val updatedItems = bulkState.items.map { 
+                            if (it.appId == item.appId) it.copy(state = state) else it 
+                        }
+                        bulkState.copy(items = updatedItems)
+                    }
+                    
+                    when (state) {
+                        is DownloadState.Success -> {
+                            // Update app config with APK metadata
+                            state.metadata?.let { metadata ->
+                                val app = repository.getAppById(item.appId)
+                                app?.let {
+                                    val updatedApp = it.copy(
+                                        name = if (it.name.isBlank() || it.name == "App") metadata.appLabel else it.name,
+                                        packageName = metadata.packageName,
+                                        versionName = metadata.versionName,
+                                        versionCode = metadata.versionCode,
+                                        appLabel = metadata.appLabel
+                                    )
+                                    repository.updateApp(updatedApp)
+                                }
+                            }
+
+                            // Trigger installation
+                            withContext(Dispatchers.Main) {
+                                apkInstaller.installApk(state.file)
+                            }
+                            // Note: We don't delete the APK immediately because the system installer
+                            // still needs to access it via FileProvider. The file will be cleaned up
+                            // when the app resumes/refreshes instead.
+
+                            // Update completed count
+                            _bulkDownloadState.update { bulkState ->
+                                bulkState.copy(completedCount = bulkState.completedCount + 1)
+                            }
+                        }
+                        is DownloadState.Error -> {
+                            Timber.e("Download error for ${item.appName}: ${state.message}")
+                            
+                            // Update failed count
+                            _bulkDownloadState.update { bulkState ->
+                                bulkState.copy(
+                                    completedCount = bulkState.completedCount + 1,
+                                    failedCount = bulkState.failedCount + 1
+                                )
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception during bulk download for ${item.appName}")
+            
+            // Update item state to error
+            _bulkDownloadState.update { bulkState ->
+                val updatedItems = bulkState.items.map { 
+                    if (it.appId == item.appId) 
+                        it.copy(state = DownloadState.Error(e.message ?: "Unknown error")) 
+                    else it 
+                }
+                bulkState.copy(
+                    items = updatedItems,
+                    completedCount = bulkState.completedCount + 1,
+                    failedCount = bulkState.failedCount + 1
+                )
             }
         }
     }
@@ -285,6 +439,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    fun cancelBulkDownload() {
+        bulkDownloadJob?.cancel()
+        _bulkDownloadState.value = BulkDownloadState()
+
+        // Clean up any partial APK files from cache immediately
+        cleanupAllApkFiles()
+    }
+    
     fun resetDownloadState() {
         _downloadState.value = DownloadState.Idle
         currentDownloadAppId = null
@@ -298,6 +460,78 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _refreshTrigger.value += 1
         if (uninstallQueue.isNotEmpty()) {
             processNextUninstall()
+        }
+        // Clean up old APK files when returning to main screen
+        // (by this time, installations should be complete or cancelled)
+        cleanupOldApkFiles()
+    }
+
+    /**
+     * Clean up old APK files from the cache directory
+     * This should be called when the app resumes to free up disk space
+     */
+    private fun cleanupOldApkFiles() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cacheDir = getApplication<Application>().cacheDir
+                val apkFiles = cacheDir.listFiles { file ->
+                    file.name.startsWith("temp_") && file.extension == "apk"
+                }
+                apkFiles?.forEach { file ->
+                    val ageInMillis = System.currentTimeMillis() - file.lastModified()
+                    val ageInSeconds = ageInMillis / 1000
+
+                    // Delete APKs older than 10 seconds to ensure system installer is done
+                    // 10 seconds gives enough time for the installation dialog to appear
+                    if (ageInSeconds > 10) {
+                        val deleted = file.delete()
+                        if (deleted) {
+                            Timber.d("Cleaned up old APK file: ${file.name} (${ageInSeconds}s old)")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error cleaning up old APK files")
+            }
+        }
+    }
+
+    /**
+     * Clean up ALL APK files from cache (immediate cleanup for cancel operations)
+     */
+    private fun cleanupAllApkFiles() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cacheDir = getApplication<Application>().cacheDir
+                val apkFiles = cacheDir.listFiles { file ->
+                    file.name.startsWith("temp_") && file.extension == "apk"
+                }
+                apkFiles?.forEach { file ->
+                    val deleted = file.delete()
+                    if (deleted) {
+                        Timber.d("Cleaned up APK file: ${file.name}")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error cleaning up APK files")
+            }
+        }
+    }
+
+    private fun deleteApkFile(file: File?) {
+        file?.let {
+            try {
+                if (it.exists()) {
+                    val deleted = it.delete()
+                    if (deleted) {
+                        Timber.d("Deleted APK file: ${it.name}")
+                    } else {
+                        Timber.w("Failed to delete APK file: ${it.name}")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Exception while deleting APK file: ${it.name}")
+            }
         }
     }
     
