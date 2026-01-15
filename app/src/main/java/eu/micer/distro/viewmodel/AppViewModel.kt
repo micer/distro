@@ -453,23 +453,6 @@ private var bulkDownloadJob: Job? = null
             }
         }
     }
-
-    private fun deleteApkFile(file: File?) {
-        file?.let {
-            try {
-                if (it.exists()) {
-                    val deleted = it.delete()
-                    if (deleted) {
-                        Timber.d("Deleted APK file: ${it.name}")
-                    } else {
-                        Timber.w("Failed to delete APK file: ${it.name}")
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Exception while deleting APK file: ${it.name}")
-            }
-        }
-    }
     
     override fun onCleared() {
         super.onCleared()
