@@ -136,12 +136,13 @@ private fun OverallProgressSection(bulkState: BulkDownloadState) {
     
     Card(
         modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -180,6 +181,7 @@ private fun OverallProgressSection(bulkState: BulkDownloadState) {
 private fun AppDownloadItem(item: BulkDownloadItem) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = when (item.state) {
             is DownloadState.Success -> CardDefaults.cardColors(
                 containerColor = Success.copy(alpha = 0.1f)
@@ -193,7 +195,7 @@ private fun AppDownloadItem(item: BulkDownloadItem) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
