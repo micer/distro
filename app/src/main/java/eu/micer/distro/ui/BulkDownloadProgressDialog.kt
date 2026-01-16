@@ -164,6 +164,7 @@ private fun OverallProgressSection(bulkState: BulkDownloadState) {
             LinearProgressIndicator(
                 progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth(),
+                trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
             )
             
             if (bulkState.failedCount > 0) {
