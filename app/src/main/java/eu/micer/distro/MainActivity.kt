@@ -56,7 +56,8 @@ val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
                 onBulkUninstall = { ids: List<Long> -> viewModel.bulkUninstall(ids) },
                 onBulkQuickLinkDownload = { ids, name -> viewModel.bulkDownloadFromQuickLinkName(ids, name) },
                 bulkDownloadState = bulkDownloadState,
-                onCancelBulkDownload = { viewModel.cancelBulkDownload() }
+                onCancelBulkDownload = { viewModel.cancelBulkDownload() },
+                onClearSuccessMessages = { viewModel.clearSuccessMessages() }
             )
         }
         

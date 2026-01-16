@@ -58,7 +58,8 @@ data class BulkDownloadState(
     val isActive: Boolean = false,
     val completedCount: Int = 0,
     val failedCount: Int = 0,
-    val totalCount: Int = 0
+    val totalCount: Int = 0,
+    val completedAt: Long = 0 // Timestamp when all downloads completed (0 if not completed)
 )
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -243,7 +244,7 @@ private var bulkDownloadJob: Job? = null
 
             // Mark bulk download as complete
             _bulkDownloadState.update { state ->
-                state.copy(isActive = false)
+                state.copy(isActive = false, completedAt = System.currentTimeMillis())
             }
         }
     }
@@ -279,7 +280,7 @@ private var bulkDownloadJob: Job? = null
             downloadSingleAppInBulk(downloadItem, isQuickLink = true)
 
             _bulkDownloadState.update { state ->
-                state.copy(isActive = false)
+                state.copy(isActive = false, completedAt = System.currentTimeMillis())
             }
         }
     }
@@ -341,7 +342,7 @@ private var bulkDownloadJob: Job? = null
             jobs.awaitAll()
 
             _bulkDownloadState.update { state ->
-                state.copy(isActive = false)
+                state.copy(isActive = false, completedAt = System.currentTimeMillis())
             }
         }
     }
@@ -491,10 +492,27 @@ private var bulkDownloadJob: Job? = null
     
     fun cancelBulkDownload() {
         bulkDownloadJob?.cancel()
-        _bulkDownloadState.value = BulkDownloadState()
+        _bulkDownloadState.value = BulkDownloadState(completedAt = 0)
 
         // Clean up any partial APK files from cache immediately
         cleanupAllApkFiles()
+    }
+
+    /**
+     * Clears success messages by changing all Success states to Idle
+     * Called from UI after a delay when all downloads are complete
+     */
+    fun clearSuccessMessages() {
+        _bulkDownloadState.update { state ->
+            val updatedItems = state.items.map { item ->
+                if (item.state is DownloadState.Success) {
+                    item.copy(state = DownloadState.Idle)
+                } else {
+                    item
+                }
+            }
+            state.copy(items = updatedItems, completedAt = 0)
+        }
     }
 
     /**

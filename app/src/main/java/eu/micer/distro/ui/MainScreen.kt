@@ -47,10 +47,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -83,6 +85,7 @@ fun MainScreen(
     onBulkQuickLinkDownload: (List<Long>, String) -> Unit = { _, _ -> },
     bulkDownloadState: BulkDownloadState = BulkDownloadState(),
     onCancelBulkDownload: () -> Unit = {},
+    onClearSuccessMessages: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
@@ -91,6 +94,14 @@ fun MainScreen(
     var showVersionDialog by remember { mutableStateOf(false) }
     var showUninstallDialog by remember { mutableStateOf(false) }
     var isFabExpanded by remember { mutableStateOf(false) }
+
+    // Clear success messages 3 seconds after all downloads complete
+    LaunchedEffect(bulkDownloadState.isActive, bulkDownloadState.completedAt) {
+        if (!bulkDownloadState.isActive && bulkDownloadState.completedAt > 0) {
+            delay(5_000) // Wait x seconds
+            onClearSuccessMessages()
+        }
+    }
 
     // Refresh installation status when the screen resumes
     val lifecycleOwner = LocalLifecycleOwner.current
