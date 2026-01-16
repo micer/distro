@@ -16,5 +16,6 @@ data class AppConfig(
     val packageName: String? = null, // Extracted from APK (e.g., "com.example.app")
     val versionName: String? = null, // Extracted from APK (e.g., "1.2.3")
     val versionCode: Long? = null, // Extracted from APK
-    val appLabel: String? = null // Extracted app label from APK
+    val appLabel: String? = null, // Extracted app label from APK
+    val quickLinks: String? = null // Serialized JSON list of QuickLink objects
 )

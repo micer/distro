@@ -63,15 +63,16 @@ val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
                 onNavigateToConfig = { navController.navigate("config") },
                 onRefreshInstallationStatus = { viewModel.refreshInstallationStatus() },
                 onBulkDownload = { ids: List<Long>, version: String -> viewModel.bulkDownloadAndInstall(ids, version) },
-                onBulkUninstall = { ids: List<Long> -> viewModel.bulkUninstall(ids) }
+                onBulkUninstall = { ids: List<Long> -> viewModel.bulkUninstall(ids) },
+                onBulkQuickLinkDownload = { ids, name -> viewModel.bulkDownloadFromQuickLinkName(ids, name) }
             )
         }
         
         composable("add_app") {
             AddEditAppScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSave = { name, pattern, packageName ->
-                    viewModel.insertApp(name, pattern, packageName)
+                onSave = { name, pattern, packageName, quickLinksJson ->
+                    viewModel.insertApp(name, pattern, packageName, quickLinksJson)
                     navController.popBackStack()
                 }
             )
@@ -85,25 +86,28 @@ val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
             var appName by remember { mutableStateOf<String?>(null) }
             var urlPattern by remember { mutableStateOf("") }
             var packageName by remember { mutableStateOf("") }
-            
+            var quickLinksJson by remember { mutableStateOf<String?>(null) }
+
             LaunchedEffect(appId) {
                 viewModel.getAppById(appId) { app ->
                     if (app != null) {
                         appName = app.name
                         urlPattern = app.urlPattern
                         packageName = app.packageName ?: ""
+                        quickLinksJson = app.quickLinks
                     }
                 }
             }
-            
+
             appName?.let { name ->
                 AddEditAppScreen(
                     appName = name,
                     urlPattern = urlPattern,
                     packageName = packageName,
+                    quickLinksJson = quickLinksJson,
                     onNavigateBack = { navController.popBackStack() },
-                    onSave = { updatedName, pattern, pkg ->
-                        viewModel.updateApp(appId, updatedName, pattern, pkg)
+                    onSave = { updatedName, pattern, pkg, quickLinks ->
+                        viewModel.updateApp(appId, updatedName, pattern, pkg, quickLinks)
                         navController.popBackStack()
                     }
                 )

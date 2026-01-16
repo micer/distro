@@ -11,6 +11,7 @@ import eu.micer.distro.data.AppImportList
 import eu.micer.distro.data.AppRepository
 import eu.micer.distro.data.toAppConfig
 import eu.micer.distro.data.toAppImportItem
+import eu.micer.distro.data.quickLinksFromJson
 import eu.micer.distro.utils.ApkInstaller
 import eu.micer.distro.utils.DownloadManager
 import eu.micer.distro.utils.DownloadState
@@ -106,10 +107,15 @@ private var bulkDownloadJob: Job? = null
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     }
     
-    fun insertApp(name: String, urlPattern: String, packageName: String = "") {
+    fun insertApp(name: String, urlPattern: String, packageName: String = "", quickLinksJson: String? = null) {
         viewModelScope.launch {
             val finalPackageName = packageName.trim().ifBlank { null }
-            repository.insertApp(AppConfig(name = name, urlPattern = urlPattern, packageName = finalPackageName))
+            repository.insertApp(AppConfig(
+                name = name,
+                urlPattern = urlPattern,
+                packageName = finalPackageName,
+                quickLinks = if (quickLinksJson.isNullOrBlank()) null else quickLinksJson
+            ))
         }
     }
     
@@ -119,7 +125,7 @@ private var bulkDownloadJob: Job? = null
         }
     }
     
-    fun updateApp(appId: Long, name: String, urlPattern: String, packageName: String = "") {
+    fun updateApp(appId: Long, name: String, urlPattern: String, packageName: String = "", quickLinksJson: String? = null) {
         viewModelScope.launch {
             getAppById(appId) { existingApp ->
                 existingApp?.let { app ->
@@ -127,7 +133,8 @@ private var bulkDownloadJob: Job? = null
                     val updatedApp = app.copy(
                         name = name,
                         urlPattern = urlPattern,
-                        packageName = finalPackageName
+                        packageName = finalPackageName,
+                        quickLinks = quickLinksJson ?: app.quickLinks
                     )
                     launch {
                         repository.updateApp(updatedApp)
@@ -192,7 +199,7 @@ private var bulkDownloadJob: Job? = null
     fun bulkDownloadAndInstall(appIds: List<Long>, versionName: String) {
         // Cancel any existing bulk download
         bulkDownloadJob?.cancel()
-        
+
         bulkDownloadJob = viewModelScope.launch {
             // Prepare the download list
             val downloadItems = appIds.mapIndexedNotNull { index, appId ->
@@ -209,7 +216,7 @@ private var bulkDownloadJob: Job? = null
                     )
                 }
             }
-            
+
             // Initialize bulk download state
             _bulkDownloadState.value = BulkDownloadState(
                 items = downloadItems,
@@ -218,22 +225,22 @@ private var bulkDownloadJob: Job? = null
                 failedCount = 0,
                 totalCount = downloadItems.size
             )
-            
+
             // Semaphore to limit concurrent downloads to 3
             val semaphore = Semaphore(10)
-            
+
             // Launch parallel downloads
             val jobs = downloadItems.map { item ->
                 async(Dispatchers.IO) {
                     semaphore.withPermit {
-                        downloadSingleAppInBulk(item)
+                        downloadSingleAppInBulk(item, isQuickLink = false)
                     }
                 }
             }
-            
+
             // Wait for all downloads to complete
             jobs.awaitAll()
-            
+
             // Mark bulk download as complete
             _bulkDownloadState.update { state ->
                 state.copy(isActive = false)
@@ -241,20 +248,122 @@ private var bulkDownloadJob: Job? = null
         }
     }
 
-    private suspend fun downloadSingleAppInBulk(item: BulkDownloadItem) {
+    fun downloadFromQuickLink(appId: Long, quickLinkUrl: String) {
+        bulkDownloadJob?.cancel()
+
+        bulkDownloadJob = viewModelScope.launch {
+            val app = repository.getAppById(appId)
+            if (app == null) {
+                Timber.e("App not found for ID: $appId")
+                return@launch
+            }
+
+            val downloadItem = BulkDownloadItem(
+                appId = appId,
+                appName = app.name.ifBlank { app.appLabel ?: "App" },
+                packageName = app.packageName,
+                urlPattern = quickLinkUrl,
+                versionName = "Quick Link",
+                state = DownloadState.Idle,
+                order = 0
+            )
+
+            _bulkDownloadState.value = BulkDownloadState(
+                items = listOf(downloadItem),
+                isActive = true,
+                completedCount = 0,
+                failedCount = 0,
+                totalCount = 1
+            )
+
+            downloadSingleAppInBulk(downloadItem, isQuickLink = true)
+
+            _bulkDownloadState.update { state ->
+                state.copy(isActive = false)
+            }
+        }
+    }
+
+    fun bulkDownloadFromQuickLinkName(appIds: List<Long>, quickLinkName: String) {
+        bulkDownloadJob?.cancel()
+
+        bulkDownloadJob = viewModelScope.launch {
+            // Find apps that have this quick link and get their specific URLs
+            val appsWithQuickLink = appIds.mapNotNull { appId ->
+                val app = repository.getAppById(appId)
+                if (app != null) {
+                    val quickLinks = quickLinksFromJson(app.quickLinks)
+                    val quickLink = quickLinks.find { it.name == quickLinkName }
+                    if (quickLink != null) {
+                        Pair(app, quickLink.link)
+                    } else null
+                } else null
+            }
+
+            if (appsWithQuickLink.isEmpty()) {
+                Timber.e("No apps found with quick link named '$quickLinkName'")
+                return@launch
+            }
+
+            val downloadItems = appsWithQuickLink.mapIndexed { index, (app, url) ->
+                BulkDownloadItem(
+                    appId = app.id,
+                    appName = app.name.ifBlank { app.appLabel ?: "App" },
+                    packageName = app.packageName,
+                    urlPattern = url,
+                    versionName = quickLinkName,
+                    state = DownloadState.Idle,
+                    order = index
+                )
+            }
+
+            _bulkDownloadState.value = BulkDownloadState(
+                items = downloadItems,
+                isActive = true,
+                completedCount = 0,
+                failedCount = 0,
+                totalCount = downloadItems.size
+            )
+
+            // Semaphore to limit concurrent downloads
+            val semaphore = Semaphore(5)
+
+            // Launch parallel downloads
+            val jobs = downloadItems.map { item ->
+                async(Dispatchers.IO) {
+                    semaphore.withPermit {
+                        downloadSingleAppInBulk(item, isQuickLink = true)
+                    }
+                }
+            }
+
+            // Wait for all downloads to complete
+            jobs.awaitAll()
+
+            _bulkDownloadState.update { state ->
+                state.copy(isActive = false)
+            }
+        }
+    }
+
+    private suspend fun downloadSingleAppInBulk(item: BulkDownloadItem, isQuickLink: Boolean = false) {
         try {
-            val url = item.urlPattern.replace("{version}", item.versionName)
-            
+            val url = if (isQuickLink) {
+                item.urlPattern // Direct URL from quick link
+            } else {
+                item.urlPattern.replace("{version}", item.versionName)
+            }
+
             withContext(Dispatchers.IO) {
                 downloadManager.downloadApk(url).collect { state ->
                     // Update this specific item's state
                     _bulkDownloadState.update { bulkState ->
-                        val updatedItems = bulkState.items.map { 
-                            if (it.appId == item.appId) it.copy(state = state) else it 
+                        val updatedItems = bulkState.items.map {
+                            if (it.appId == item.appId) it.copy(state = state) else it
                         }
                         bulkState.copy(items = updatedItems)
                     }
-                    
+
                     when (state) {
                         is DownloadState.Success -> {
                             // Update app config with APK metadata
@@ -287,7 +396,7 @@ private var bulkDownloadJob: Job? = null
                         }
                         is DownloadState.Error -> {
                             Timber.e("Download error for ${item.appName}: ${state.message}")
-                            
+
                             // Update failed count
                             _bulkDownloadState.update { bulkState ->
                                 bulkState.copy(
@@ -302,13 +411,13 @@ private var bulkDownloadJob: Job? = null
             }
         } catch (e: Exception) {
             Timber.e(e, "Exception during bulk download for ${item.appName}")
-            
+
             // Update item state to error
             _bulkDownloadState.update { bulkState ->
-                val updatedItems = bulkState.items.map { 
-                    if (it.appId == item.appId) 
-                        it.copy(state = DownloadState.Error(e.message ?: "Unknown error")) 
-                    else it 
+                val updatedItems = bulkState.items.map {
+                    if (it.appId == item.appId)
+                        it.copy(state = DownloadState.Error(e.message ?: "Unknown error"))
+                    else it
                 }
                 bulkState.copy(
                     items = updatedItems,

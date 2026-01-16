@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import eu.micer.distro.data.quickLinksFromJson
 import eu.micer.distro.ui.theme.PrimaryBlue
 import eu.micer.distro.ui.theme.SuccessGreen
 import eu.micer.distro.viewmodel.AppConfigWithStatus
@@ -69,6 +71,7 @@ fun MainScreen(
     onRefreshInstallationStatus: () -> Unit = {},
     onBulkDownload: (List<Long>, String) -> Unit = { _, _ -> },
     onBulkUninstall: (List<Long>) -> Unit = { _ -> },
+    onBulkQuickLinkDownload: (List<Long>, String) -> Unit = { _, _ -> },
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
@@ -195,11 +198,24 @@ fun MainScreen(
     }
 
     if (showVersionDialog) {
+        // Get the selected apps
+        val selectedApps = if (isSelectionMode) {
+            appsWithStatus.filter { selectedIds.contains(it.config.id) }.map { it.config }
+        } else {
+            appsWithStatus.map { it.config }
+        }
+
         VersionInputDialog(
+            selectedApps = selectedApps,
             onDismiss = { showVersionDialog = false },
-            onConfirm = { version ->
+            onConfirmByVersion = { version ->
                 val idsToDownload = if (isSelectionMode) selectedIds.toList() else appsWithStatus.map { it.config.id }
                 onBulkDownload(idsToDownload, version)
+                showVersionDialog = false
+                selectedIds = emptySet()
+            },
+            onQuickLinkClick = { quickLinkName ->
+                onBulkQuickLinkDownload(selectedApps.map { it.id }, quickLinkName)
                 showVersionDialog = false
                 selectedIds = emptySet()
             }
@@ -344,10 +360,21 @@ fun BulkActionsFab(
 
 @Composable
 fun VersionInputDialog(
+    selectedApps: List<eu.micer.distro.data.AppConfig> = emptyList(),
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirmByVersion: (String) -> Unit,
+    onQuickLinkClick: (String) -> Unit
 ) {
     var version by remember { mutableStateOf("") }
+
+    // Collect and group quick links by name from all selected apps
+    val quickLinkGroups = remember(selectedApps) {
+        selectedApps
+            .flatMap { app -> eu.micer.distro.data.quickLinksFromJson(app.quickLinks) }
+            .groupBy { it.name }
+            .mapValues { (_, links) -> links.size }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Enter version to download") },
@@ -363,41 +390,33 @@ fun VersionInputDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                
-                Text(
-                    text = "Quick select:",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { version = "latest" },
-                        modifier = Modifier.weight(1f)
+
+                // Show quick links if available
+                if (quickLinkGroups.isNotEmpty()) {
+                    Text(
+                        text = "Quick select:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Latest", maxLines = 1)
-                    }
-                    OutlinedButton(
-                        onClick = { version = "NIGHTLY-latest" },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("NIGHTLY", maxLines = 1)
-                    }
-                    OutlinedButton(
-                        onClick = { version = "RC-latest" },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("RC", maxLines = 1)
+                        quickLinkGroups.forEach { (name, count) ->
+                            OutlinedButton(
+                                onClick = { onQuickLinkClick(name) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (count > 1) "$name ($count)" else name, maxLines = 1)
+                            }
+                        }
                     }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(version) },
+                onClick = { onConfirmByVersion(version) },
                 enabled = version.isNotBlank()
             ) {
                 Text("Download")
