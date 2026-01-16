@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
@@ -63,6 +65,13 @@ import eu.micer.distro.ui.theme.OnPrimary
 import eu.micer.distro.viewmodel.AppConfigWithStatus
 import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.material3.LinearProgressIndicator
+import eu.micer.distro.utils.DownloadState
+import eu.micer.distro.viewmodel.BulkDownloadItem
+import eu.micer.distro.viewmodel.BulkDownloadState
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
@@ -72,6 +81,8 @@ fun MainScreen(
     onBulkDownload: (List<Long>, String) -> Unit = { _, _ -> },
     onBulkUninstall: (List<Long>) -> Unit = { _ -> },
     onBulkQuickLinkDownload: (List<Long>, String) -> Unit = { _, _ -> },
+    bulkDownloadState: BulkDownloadState = BulkDownloadState(),
+    onCancelBulkDownload: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
@@ -130,23 +141,28 @@ fun MainScreen(
             }
         },
         floatingActionButton = {
-            BulkActionsFab(
-                isExpanded = isFabExpanded,
-                onToggleExpand = { isFabExpanded = !isFabExpanded },
-                onDownloadAll = {
-                    showVersionDialog = true
-                    isFabExpanded = false
-                },
-                onUninstallAll = {
-                    showUninstallDialog = true
-                    isFabExpanded = false
-                },
-                onEnterSelectionMode = {
-                    if (selectedIds.isEmpty()) {
-                        selectedIds = setOf(appsWithStatus.firstOrNull()?.config?.id ?: -1L).filter { it != -1L }.toSet()
-                    }
-                    isFabExpanded = false
-                },
+            if (bulkDownloadState.isActive) {
+                CancelDownloadFab(
+                    onCancel = onCancelBulkDownload
+                )
+            } else {
+                BulkActionsFab(
+                    isExpanded = isFabExpanded,
+                    onToggleExpand = { isFabExpanded = !isFabExpanded },
+                    onDownloadAll = {
+                        showVersionDialog = true
+                        isFabExpanded = false
+                    },
+                    onUninstallAll = {
+                        showUninstallDialog = true
+                        isFabExpanded = false
+                    },
+                    onEnterSelectionMode = {
+                        if (selectedIds.isEmpty()) {
+                            selectedIds = setOf(appsWithStatus.firstOrNull()?.config?.id ?: -1L).filter { it != -1L }.toSet()
+                        }
+                        isFabExpanded = false
+                    },
                 isSelectionMode = isSelectionMode,
                 onDownloadSelected = {
                     showVersionDialog = true
@@ -155,6 +171,7 @@ fun MainScreen(
                     showUninstallDialog = true
                 }
             )
+            }
         }
     ) { padding ->
         if (appsWithStatus.isEmpty()) {
@@ -169,6 +186,8 @@ fun MainScreen(
             ) {
                 items(appsWithStatus, key = { it.config.id }) { appWithStatus ->
                     val id = appWithStatus.config.id
+                    // Find the download state for this specific app
+                    val downloadItem = bulkDownloadState.items.find { it.appId == id }
                     AppItem(
                         appWithStatus = appWithStatus,
                         onClick = {
@@ -190,7 +209,8 @@ fun MainScreen(
                             }
                         },
                         selected = selectedIds.contains(id),
-                        selectionMode = isSelectionMode
+                        selectionMode = isSelectionMode,
+                        downloadItem = downloadItem
                     )
                 }
             }
@@ -359,6 +379,25 @@ fun BulkActionsFab(
 }
 
 @Composable
+fun CancelDownloadFab(
+    onCancel: () -> Unit
+) {
+    FloatingActionButton(
+        onClick = onCancel,
+        containerColor = MaterialTheme.colorScheme.error
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        ) {
+            Icon(Icons.Default.Cancel, contentDescription = "Cancel All Downloads")
+            Text("Cancel All")
+        }
+    }
+}
+
+@Composable
 fun VersionInputDialog(
     selectedApps: List<eu.micer.distro.data.AppConfig> = emptyList(),
     onDismiss: () -> Unit,
@@ -437,7 +476,8 @@ fun AppItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     selected: Boolean = false,
-    selectionMode: Boolean = false
+    selectionMode: Boolean = false,
+    downloadItem: BulkDownloadItem? = null
 ) {
 
     val app = appWithStatus.config
@@ -456,97 +496,192 @@ fun AppItem(
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
-        colors = if (selected) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        } else {
-            CardDefaults.cardColors()
+        colors = when {
+            selected -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            downloadItem?.state is DownloadState.Success -> CardDefaults.cardColors(containerColor = Success.copy(alpha = 0.1f))
+            downloadItem?.state is DownloadState.Error -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            else -> CardDefaults.cardColors()
         }
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(20.dp)
         ) {
-            if (selectionMode) {
-                Checkbox(
-                    checked = selected,
-                    onCheckedChange = { onClick() },
-                    modifier = Modifier.padding(end = 16.dp)
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (selectionMode) {
+                    Checkbox(
+                        checked = selected,
+                        onCheckedChange = { onClick() },
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    // App Name
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // Package Name
+                    if (app.packageName != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = app.packageName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Installation Status
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (installedInfo.isInstalled)
+                                Icons.Filled.CheckCircle
+                            else
+                                Icons.Outlined.Circle,
+                            contentDescription = null,
+                            tint = if (installedInfo.isInstalled)
+                                Success
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (installedInfo.isInstalled) {
+                                "Installed: ${installedInfo.versionName ?: "Unknown"}"
+                            } else {
+                                "Not installed"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (installedInfo.isInstalled)
+                                Success
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (installedInfo.isInstalled) FontWeight.Medium else FontWeight.Normal
+                        )
+                    }
+
+                    // Downloaded Version (from last download)
+                    if (app.versionName != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Last downloaded: ${app.versionName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // URL Pattern
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = app.urlPattern,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        maxLines = 2
+                    )
+                }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                // App Name
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Package Name
-                if (app.packageName != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = app.packageName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            // Download Progress Section
+            downloadItem?.let { item ->
+                when (val state = item.state) {
+                    is DownloadState.Downloading -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Download,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = if (state.isIndeterminate) {
+                                        "Downloading... ${formatBytes(state.downloadedBytes)}"
+                                    } else {
+                                        "Downloading... ${String.format("%.1f%%", state.progress * 100)}"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                if (state.isIndeterminate) {
+                                    LinearProgressIndicator(
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                } else {
+                                    val animatedProgress by animateFloatAsState(
+                                        targetValue = state.progress,
+                                        animationSpec = tween(durationMillis = 300),
+                                        label = "download_progress"
+                                    )
+                                    LinearProgressIndicator(
+                                        progress = { animatedProgress },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    is DownloadState.Success -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = Success,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "✓ Download complete",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Success,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    is DownloadState.Error -> {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Error,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "✗ ${state.message}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    else -> {}
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Installation Status
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (installedInfo.isInstalled)
-                            Icons.Filled.CheckCircle
-                        else
-                            Icons.Outlined.Circle,
-                        contentDescription = null,
-                        tint = if (installedInfo.isInstalled)
-                            Success
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = if (installedInfo.isInstalled) {
-                            "Installed: ${installedInfo.versionName ?: "Unknown"}"
-                        } else {
-                            "Not installed"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (installedInfo.isInstalled)
-                            Success
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (installedInfo.isInstalled) FontWeight.Medium else FontWeight.Normal
-                    )
-                }
-
-                // Downloaded Version (from last download)
-                if (app.versionName != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Last downloaded: ${app.versionName}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // URL Pattern
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = app.urlPattern,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                    maxLines = 2
-                )
             }
         }
     }
@@ -573,5 +708,14 @@ fun EmptyState(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> String.format("%.2f KB", bytes / 1024.0)
+        bytes < 1024 * 1024 * 1024 -> String.format("%.2f MB", bytes / (1024.0 * 1024.0))
+        else -> String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0))
     }
 }

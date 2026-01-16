@@ -17,7 +17,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import eu.micer.distro.ui.AddEditAppScreen
 import eu.micer.distro.ui.AppConfigScreen
-import eu.micer.distro.ui.BulkDownloadProgressDialog
 import eu.micer.distro.ui.MainScreen
 import eu.micer.distro.ui.theme.DistroTheme
 import eu.micer.distro.viewmodel.AppViewModel
@@ -46,16 +45,7 @@ fun DistroAppContent() {
     val appsWithStatus by viewModel.appsWithStatus.collectAsState()
 val importState by viewModel.importState.collectAsState()
 val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
-    
-    // Show bulk download progress dialog when active or when there are items to display
-    if (bulkDownloadState.items.isNotEmpty()) {
-        BulkDownloadProgressDialog(
-            bulkState = bulkDownloadState,
-            onCancel = { viewModel.cancelBulkDownload() },
-            onDismiss = { viewModel.cancelBulkDownload() }
-        )
-    }
-    
+
     NavHost(navController = navController, startDestination = "main") {
         composable("main") {
             MainScreen(
@@ -64,7 +54,9 @@ val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
                 onRefreshInstallationStatus = { viewModel.refreshInstallationStatus() },
                 onBulkDownload = { ids: List<Long>, version: String -> viewModel.bulkDownloadAndInstall(ids, version) },
                 onBulkUninstall = { ids: List<Long> -> viewModel.bulkUninstall(ids) },
-                onBulkQuickLinkDownload = { ids, name -> viewModel.bulkDownloadFromQuickLinkName(ids, name) }
+                onBulkQuickLinkDownload = { ids, name -> viewModel.bulkDownloadFromQuickLinkName(ids, name) },
+                bulkDownloadState = bulkDownloadState,
+                onCancelBulkDownload = { viewModel.cancelBulkDownload() }
             )
         }
         
