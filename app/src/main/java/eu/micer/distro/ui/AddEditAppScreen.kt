@@ -17,6 +17,7 @@ import eu.micer.distro.data.QuickLink
 import eu.micer.distro.data.quickLinksFromJson
 import eu.micer.distro.data.quickLinksToJson
 import eu.micer.distro.ui.theme.Primary
+import eu.micer.distro.ui.theme.OnPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,14 +50,14 @@ fun AddEditAppScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = androidx.compose.ui.graphics.Color.White
+                            tint = OnPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Primary,
-                    titleContentColor = androidx.compose.ui.graphics.Color.White,
-                    navigationIconContentColor = androidx.compose.ui.graphics.Color.White
+                    titleContentColor = OnPrimary,
+                    navigationIconContentColor = OnPrimary
                 )
             )
         }

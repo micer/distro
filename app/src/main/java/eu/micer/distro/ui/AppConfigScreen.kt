@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.micer.distro.data.AppConfig
 import eu.micer.distro.ui.theme.Primary
+import eu.micer.distro.ui.theme.OnPrimary
 import eu.micer.distro.viewmodel.ImportState
 import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 
@@ -84,7 +85,7 @@ fun AppConfigScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = androidx.compose.ui.graphics.Color.White
+                            tint = OnPrimary
                         )
                     }
                 },
@@ -93,22 +94,22 @@ fun AppConfigScreen(
                         Icon(
                             painterResource(id = fontAwesomeIcons.fontawesome_ic_file_import_solid),
                             contentDescription = "Import JSON",
-                            tint = androidx.compose.ui.graphics.Color.White
+                            tint = OnPrimary
                         )
                     }
 //                    IconButton(onClick = onExportApps) {
 //                        Icon(
 //                            painterResource(id = fontAwesomeIcons.fontawesome_ic_file_export_solid),
 //                            contentDescription = "Export Apps",
-//                            tint = androidx.compose.ui.graphics.Color.White
+//                            tint = OnPrimary
 //                        )
 //                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Primary,
-                    titleContentColor = androidx.compose.ui.graphics.Color.White,
-                    navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
-                    actionIconContentColor = androidx.compose.ui.graphics.Color.White
+                    titleContentColor = OnPrimary,
+                    navigationIconContentColor = OnPrimary,
+                    actionIconContentColor = OnPrimary
                 )
             )
         },

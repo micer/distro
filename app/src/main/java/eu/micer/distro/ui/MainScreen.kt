@@ -59,6 +59,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import eu.micer.distro.ui.theme.Primary
 import eu.micer.distro.ui.theme.Success
+import eu.micer.distro.ui.theme.OnPrimary
 import eu.micer.distro.viewmodel.AppConfigWithStatus
 import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 
@@ -116,14 +117,14 @@ fun MainScreen(
                             Icon(
                                 painterResource(id = fontAwesomeIcons.fontawesome_ic_sliders_h_solid),
                                 contentDescription = "App Configuration",
-                                tint = androidx.compose.ui.graphics.Color.White
+                                tint = OnPrimary
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Primary,
-                        titleContentColor = androidx.compose.ui.graphics.Color.White,
-                        actionIconContentColor = androidx.compose.ui.graphics.Color.White
+                        titleContentColor = OnPrimary,
+                        actionIconContentColor = OnPrimary
                     )
                 )
             }
