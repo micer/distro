@@ -22,7 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import eu.micer.distro.ui.theme.SuccessGreen
+import eu.micer.distro.ui.theme.Success
 import eu.micer.distro.utils.DownloadState
 import eu.micer.distro.viewmodel.BulkDownloadItem
 import eu.micer.distro.viewmodel.BulkDownloadState
@@ -182,7 +182,7 @@ private fun AppDownloadItem(item: BulkDownloadItem) {
         modifier = Modifier.fillMaxWidth(),
         colors = when (item.state) {
             is DownloadState.Success -> CardDefaults.cardColors(
-                containerColor = SuccessGreen.copy(alpha = 0.1f)
+                containerColor = Success.copy(alpha = 0.1f)
             )
             is DownloadState.Error -> CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer
@@ -207,7 +207,7 @@ private fun AppDownloadItem(item: BulkDownloadItem) {
                 },
                 contentDescription = null,
                 tint = when (item.state) {
-                    is DownloadState.Success -> SuccessGreen
+                    is DownloadState.Success -> Success
                     is DownloadState.Error -> MaterialTheme.colorScheme.error
                     is DownloadState.Downloading -> MaterialTheme.colorScheme.primary
                     else -> MaterialTheme.colorScheme.onSurfaceVariant

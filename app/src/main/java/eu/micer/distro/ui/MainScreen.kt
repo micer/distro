@@ -58,8 +58,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import eu.micer.distro.data.quickLinksFromJson
-import eu.micer.distro.ui.theme.PrimaryBlue
-import eu.micer.distro.ui.theme.SuccessGreen
+import eu.micer.distro.ui.theme.Primary
+import eu.micer.distro.ui.theme.Success
 import eu.micer.distro.viewmodel.AppConfigWithStatus
 import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 
@@ -122,7 +122,7 @@ fun MainScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = PrimaryBlue,
+                        containerColor = Primary,
                         titleContentColor = androidx.compose.ui.graphics.Color.White,
                         actionIconContentColor = androidx.compose.ui.graphics.Color.White
                     )
@@ -508,7 +508,7 @@ fun AppItem(
                             Icons.Outlined.Circle,
                         contentDescription = null,
                         tint = if (installedInfo.isInstalled)
-                            SuccessGreen
+                            Success
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
@@ -521,7 +521,7 @@ fun AppItem(
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (installedInfo.isInstalled)
-                            SuccessGreen
+                            Success
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (installedInfo.isInstalled) FontWeight.Medium else FontWeight.Normal
@@ -543,7 +543,7 @@ fun AppItem(
                 Text(
                     text = app.urlPattern,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.secondary,
                     maxLines = 2
                 )
             }

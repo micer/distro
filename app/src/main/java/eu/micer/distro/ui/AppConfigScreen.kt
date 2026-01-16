@@ -20,7 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.micer.distro.data.AppConfig
-import eu.micer.distro.ui.theme.PrimaryBlue
+import eu.micer.distro.ui.theme.Primary
 import eu.micer.distro.viewmodel.ImportState
 import com.composables.icons.fontawesome.solid.R.drawable as fontAwesomeIcons
 
@@ -104,7 +104,7 @@ fun AppConfigScreen(
 //                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue,
+                    containerColor = Primary,
                     titleContentColor = androidx.compose.ui.graphics.Color.White,
                     navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
                     actionIconContentColor = androidx.compose.ui.graphics.Color.White

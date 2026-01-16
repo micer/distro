@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import eu.micer.distro.data.QuickLink
 import eu.micer.distro.data.quickLinksFromJson
 import eu.micer.distro.data.quickLinksToJson
-import eu.micer.distro.ui.theme.PrimaryBlue
+import eu.micer.distro.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +53,7 @@ fun AddEditAppScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue,
+                    containerColor = Primary,
                     titleContentColor = androidx.compose.ui.graphics.Color.White,
                     navigationIconContentColor = androidx.compose.ui.graphics.Color.White
                 )
