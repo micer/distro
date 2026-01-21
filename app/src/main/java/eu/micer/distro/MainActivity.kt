@@ -117,7 +117,6 @@ val bulkDownloadState by viewModel.bulkDownloadState.collectAsState()
                     navController.navigate("edit_app/$appId")
                 },
                 onDeleteApp = { app -> viewModel.deleteApp(app) },
-                onExportApps = { viewModel.exportAppsToJson() },
                 onImport = { json -> viewModel.importAppsFromJson(json) },
                 onResetImportState = { viewModel.resetImportState() }
             )

@@ -33,15 +33,6 @@ fun AppImportItem.toAppConfig(): AppConfig {
     )
 }
 
-fun AppConfig.toAppImportItem(): AppImportItem {
-    return AppImportItem(
-        name = name,
-        urlPattern = urlPattern,
-        packageName = packageName,
-        quickLinks = quickLinksFromJson(quickLinks)
-    )
-}
-
 fun quickLinksToJson(quickLinks: List<QuickLink>): String {
     if (quickLinks.isEmpty()) return ""
     return Json.encodeToString(quickLinks)

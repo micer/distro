@@ -46,7 +46,7 @@
 
 ### Downloading Your First APK
 
-1. Tap on the app you just added
+1. Tap on the app you just added to open its configuration screen
 2. Enter the version name (e.g., `v1.2.3` or `1.0.0-beta1`)
 3. Check the preview URL to ensure it looks correct
 4. Tap **Download & Install**
@@ -104,8 +104,8 @@ Distro/
 1. **MainActivity.kt**: Navigation setup and app entry point
 2. **AppViewModel.kt**: Business logic and state management
 3. **MainScreen.kt**: Home screen showing app list
-4. **DownloadScreen.kt**: Download and installation flow
-5. **DownloadManager.kt**: HTTP download implementation
+4. **AppConfigScreen.kt**: Individual app configuration and download screen
+5. **DownloadManager.kt**: OkHttp-based download implementation
 6. **ApkInstaller.kt**: Android APK installation handling
 
 ### Building Different Variants

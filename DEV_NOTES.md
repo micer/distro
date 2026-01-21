@@ -5,7 +5,7 @@
 ### MVVM Pattern
 The app follows the Model-View-ViewModel (MVVM) architecture pattern:
 - **Model**: Room database entities (`AppConfig`)
-- **View**: Jetpack Compose screens (`MainScreen`, `AddEditAppScreen`, `DownloadScreen`)
+- **View**: Jetpack Compose screens (`MainScreen`, `AddEditAppScreen`, `AppConfigScreen`)
 - **ViewModel**: `AppViewModel` manages state and business logic
 
 ### Data Flow
@@ -27,18 +27,18 @@ User Action → Compose UI → ViewModel → Repository → Room Database
 - Type-safe SQL queries
 - Automatic schema generation
 
-#### Ktor Client
-- Asynchronous HTTP client
-- Streaming download support
+#### OkHttp
+- HTTP client for downloads
+- Streaming download support with no buffering delays
 - Progress tracking capability
 
 ## Implementation Details
 
 ### Download Flow
 
-1. **User Input**: Version name entered in `DownloadScreen`
+1. **User Input**: Version name entered in `AppConfigScreen`
 2. **URL Generation**: `{version}` replaced in pattern
-3. **Download**: `DownloadManager` streams the APK with progress updates
+3. **Download**: `DownloadManager` streams the APK with progress updates using OkHttp
 4. **State Updates**: `DownloadState` flows from ViewModel to UI
 5. **Installation**: `ApkInstaller` triggers Android's package installer
 
@@ -156,11 +156,11 @@ The app uses Kotlin Flows for reactive state management:
 ## Build Configuration
 
 ### Gradle Versions
-- AGP: 8.7.3
-- Kotlin: 2.0.21
-- Compose: 2024.11.00
-- Room: 2.6.1
-- Ktor: 3.0.1
+- AGP: 8.13.2
+- Kotlin: 2.2.21
+- Compose BOM: 2025.12.01
+- Room: 2.8.4
+- OkHttp: 5.3.2
 
 ### Build Variants
 - **Debug**: Development build with debugging enabled
@@ -246,7 +246,8 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 This project uses the following open source libraries:
 - Jetpack Compose - Apache 2.0
 - Room Database - Apache 2.0
-- Ktor Client - Apache 2.0
+- OkHttp - Apache 2.0
+- Timber - Apache 2.0
 - Kotlin Coroutines - Apache 2.0
 
 All dependencies and their licenses are listed in the project's dependency tree.

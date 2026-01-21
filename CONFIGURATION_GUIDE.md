@@ -33,7 +33,7 @@ If your APKs use build numbers: `app-build-12345.apk`
 ### Important Notes
 
 1. **Placeholder is Required**: The URL pattern MUST contain `{version}` placeholder
-2. **Case Sensitive**: The placeholder must be exactly `{version}` (lowercase, with hyphens)
+2. **Case Sensitive**: The placeholder must be exactly `{version}` (lowercase, with braces)
 3. **Valid URL**: The pattern should be a valid HTTP/HTTPS URL
 4. **File Extension**: While `.apk` is typical, the app will attempt to download and install any file type
 

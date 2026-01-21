@@ -22,7 +22,7 @@ A modern Android application for distributing APK files to internal testers. Bui
 - **HTTP Client**: OkHttp
 - **Architecture**: MVVM with Repository pattern
 - **Min SDK**: 28 (Android 9.0 Pie)
-- **Target SDK**: 35 (Android 15)
+- **Target SDK**: 36 (Android 16)
 
 ## Project Structure
 
@@ -37,7 +37,7 @@ app/src/main/java/eu/micer/distro/
 ├── ui/
 │   ├── MainScreen.kt           # App list screen with installation status
 │   ├── AddEditAppScreen.kt     # Add/Edit app configuration
-│   ├── DownloadScreen.kt       # Download and install screen
+│   ├── AppConfigScreen.kt      # Individual app configuration screen
 │   └── theme/                  # Material 3 theme files
 ├── viewmodel/
 │   └── AppViewModel.kt         # Business logic and state management
@@ -64,7 +64,7 @@ The `{version}` placeholder will be replaced with the actual version you enter l
 
 ### 2. Download and Install
 
-1. Tap on an app from the list
+1. Tap on an app from the list to open its configuration screen
 2. Enter the version name (e.g., `v1.2.3` or `1.0.0-beta1`)
 3. Review the final URL preview
 4. Tap **Download & Install**
@@ -123,15 +123,12 @@ The app stores all configurations locally in a Room database. No backend or exte
 - The app supports dynamic theming on Android 12+ devices
 - Installation requires the user to enable "Install from Unknown Sources" for this app
 
-## Recent Updates
+## Key Features in Detail
 
-See [NEW_FEATURES.md](NEW_FEATURES.md) for detailed information about the latest APK management features, including:
-- Automatic metadata extraction from APKs
-- Installation status tracking
-- Optional app names with auto-fill
-- Enhanced main screen display with version information
-
-For technical details, see [TECHNICAL_CHANGES.md](TECHNICAL_CHANGES.md).
+- **Automatic metadata extraction from APKs**: Package name, version code/name, and app name are automatically extracted after download
+- **Installation status tracking**: Real-time detection of which apps are installed and their versions
+- **Optional app names with auto-fill**: App names are optional in configuration and auto-filled from APK metadata
+- **Enhanced display**: Main screen shows installation status, installed version, and last downloaded version for each app
 
 ## Future Enhancements
 

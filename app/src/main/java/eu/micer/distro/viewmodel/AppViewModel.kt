@@ -10,7 +10,6 @@ import eu.micer.distro.data.AppDatabase
 import eu.micer.distro.data.AppImportList
 import eu.micer.distro.data.AppRepository
 import eu.micer.distro.data.toAppConfig
-import eu.micer.distro.data.toAppImportItem
 import eu.micer.distro.data.quickLinksFromJson
 import eu.micer.distro.utils.ApkInstaller
 import eu.micer.distro.utils.DownloadManager
@@ -81,6 +80,9 @@ private val _bulkDownloadState = MutableStateFlow(BulkDownloadState())
 val bulkDownloadState: StateFlow<BulkDownloadState> = _bulkDownloadState.asStateFlow()
 
 private val uninstallQueue = mutableListOf<Long>()
+private val installationQueue = mutableListOf<File>()
+private var isInstallingInProgress = false
+private var currentlyInstallingFile: File? = null
 private var bulkDownloadJob: Job? = null
     
     // Trigger to refresh installation status
@@ -174,17 +176,6 @@ private var bulkDownloadJob: Job? = null
             }
         }
     }
-    
-    fun exportAppsToJson(): String {
-//        val apps = allApps.value
-//        val exportList = AppImportList(
-//            version = "1.0",
-//            apps = apps.map { it.toAppImportItem() }
-//        )
-//        return Json.encodeToString(AppImportList.serializer(), exportList)
-        Toast.makeText(getApplication(), "Not implemented yet", Toast.LENGTH_SHORT).show()
-        return ""
-    }
 
     fun resetImportState() {
         _importState.value = ImportState.Idle
@@ -243,42 +234,6 @@ private var bulkDownloadJob: Job? = null
             jobs.awaitAll()
 
             // Mark bulk download as complete
-            _bulkDownloadState.update { state ->
-                state.copy(isActive = false, completedAt = System.currentTimeMillis())
-            }
-        }
-    }
-
-    fun downloadFromQuickLink(appId: Long, quickLinkUrl: String) {
-        bulkDownloadJob?.cancel()
-
-        bulkDownloadJob = viewModelScope.launch {
-            val app = repository.getAppById(appId)
-            if (app == null) {
-                Timber.e("App not found for ID: $appId")
-                return@launch
-            }
-
-            val downloadItem = BulkDownloadItem(
-                appId = appId,
-                appName = app.name.ifBlank { app.appLabel ?: "App" },
-                packageName = app.packageName,
-                urlPattern = quickLinkUrl,
-                versionName = "Quick Link",
-                state = DownloadState.Idle,
-                order = 0
-            )
-
-            _bulkDownloadState.value = BulkDownloadState(
-                items = listOf(downloadItem),
-                isActive = true,
-                completedCount = 0,
-                failedCount = 0,
-                totalCount = 1
-            )
-
-            downloadSingleAppInBulk(downloadItem, isQuickLink = true)
-
             _bulkDownloadState.update { state ->
                 state.copy(isActive = false, completedAt = System.currentTimeMillis())
             }
@@ -382,10 +337,9 @@ private var bulkDownloadJob: Job? = null
                                 }
                             }
 
-                            // Trigger installation
-                            withContext(Dispatchers.Main) {
-                                apkInstaller.installApk(state.file)
-                            }
+                            // Queue installation instead of triggering immediately
+                            // This prevents multiple system installation dialogs from overlapping
+                            queueInstallation(state.file)
                             // Note: We don't delete the APK immediately because the system installer
                             // still needs to access it via FileProvider. The file will be cleaned up
                             // when the app resumes/refreshes instead.
@@ -490,9 +444,62 @@ private var bulkDownloadJob: Job? = null
         }
     }
     
+    /**
+     * Queue an APK file for installation
+     * Installations are serialized to prevent overlapping system dialogs
+     */
+    private fun queueInstallation(file: File) {
+        synchronized(installationQueue) {
+            installationQueue.add(file)
+            Timber.d("Queued installation: ${file.name}. Queue size: ${installationQueue.size}")
+        }
+        processNextInstallation()
+    }
+
+    /**
+     * Process the next installation in the queue
+     * Only one installation can be in progress at a time
+     */
+    private fun processNextInstallation() {
+        val fileToInstall: File? = synchronized(installationQueue) {
+            if (isInstallingInProgress) {
+                Timber.d("Installation already in progress, waiting...")
+                return
+            }
+            
+            if (installationQueue.isEmpty()) {
+                Timber.d("Installation queue is empty")
+                return
+            }
+            
+            val file = installationQueue.removeAt(0)
+            isInstallingInProgress = true
+            currentlyInstallingFile = file
+            val remainingCount = installationQueue.size
+            
+            Timber.d("Installing: ${file.name}. Remaining in queue: $remainingCount")
+            file
+        }
+        
+        fileToInstall?.let { file ->
+            viewModelScope.launch(Dispatchers.Main) {
+                apkInstaller.installApk(file)
+                // Note: isInstallingInProgress will be reset to false when the user returns
+                // from the installation screen via refreshInstallationStatus()
+            }
+        }
+    }
+
     fun cancelBulkDownload() {
         bulkDownloadJob?.cancel()
         _bulkDownloadState.value = BulkDownloadState(completedAt = 0)
+
+        // Clear installation queue
+        synchronized(installationQueue) {
+            installationQueue.clear()
+            isInstallingInProgress = false
+            currentlyInstallingFile = null
+        }
 
         // Clean up any partial APK files from cache immediately
         cleanupAllApkFiles()
@@ -521,6 +528,34 @@ private var bulkDownloadJob: Job? = null
      */
     fun refreshInstallationStatus() {
         _refreshTrigger.value += 1
+        
+        // Mark current installation as complete and process next in queue
+        val fileToCleanup = synchronized(installationQueue) {
+            if (isInstallingInProgress) {
+                val file = currentlyInstallingFile
+                isInstallingInProgress = false
+                currentlyInstallingFile = null
+                Timber.d("Installation completed, processing next in queue...")
+                processNextInstallation()
+                file
+            } else {
+                null
+            }
+        }
+        
+        // Clean up the file that was just installed (after a small delay to ensure system installer is done)
+        fileToCleanup?.let { file ->
+            viewModelScope.launch(Dispatchers.IO) {
+                kotlinx.coroutines.delay(2000) // Wait 2 seconds
+                if (file.exists()) {
+                    val deleted = file.delete()
+                    if (deleted) {
+                        Timber.d("Cleaned up installed APK: ${file.name}")
+                    }
+                }
+            }
+        }
+        
         if (uninstallQueue.isNotEmpty()) {
             processNextUninstall()
         }
@@ -532,6 +567,7 @@ private var bulkDownloadJob: Job? = null
     /**
      * Clean up old APK files from the cache directory
      * This should be called when the app resumes to free up disk space
+     * IMPORTANT: Does NOT delete files that are still in the installation queue or currently being installed
      */
     private fun cleanupOldApkFiles() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -540,7 +576,21 @@ private var bulkDownloadJob: Job? = null
                 val apkFiles = cacheDir.listFiles { file ->
                     file.name.startsWith("temp_") && file.extension == "apk"
                 }
+                
+                // Get list of files that are still in the installation queue or currently being installed
+                val protectedFiles = synchronized(installationQueue) {
+                    val files = installationQueue.map { it.absolutePath }.toMutableSet()
+                    currentlyInstallingFile?.let { files.add(it.absolutePath) }
+                    files
+                }
+                
                 apkFiles?.forEach { file ->
+                    // Skip files that are protected (in queue or currently installing)
+                    if (protectedFiles.contains(file.absolutePath)) {
+                        Timber.d("Skipping cleanup of protected file: ${file.name}")
+                        return@forEach
+                    }
+                    
                     val ageInMillis = System.currentTimeMillis() - file.lastModified()
                     val ageInSeconds = ageInMillis / 1000
 

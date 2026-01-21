@@ -11,7 +11,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +34,6 @@ fun AppConfigScreen(
     onAddApp: () -> Unit,
     onEditApp: (Long) -> Unit,
     onDeleteApp: (AppConfig) -> Unit,
-    onExportApps: () -> Unit,
     onImport: (String) -> Unit = {},
     onResetImportState: () -> Unit = {}
 ) {
@@ -97,13 +95,6 @@ fun AppConfigScreen(
                             tint = OnPrimary
                         )
                     }
-//                    IconButton(onClick = onExportApps) {
-//                        Icon(
-//                            painterResource(id = fontAwesomeIcons.fontawesome_ic_file_export_solid),
-//                            contentDescription = "Export Apps",
-//                            tint = OnPrimary
-//                        )
-//                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Primary,
