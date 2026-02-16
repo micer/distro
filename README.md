@@ -1,5 +1,10 @@
 # Distro - APK Distribution App
 
+[![Build](https://github.com/micer/Distro/actions/workflows/build-apk.yml/badge.svg)](https://github.com/micer/Distro/actions/workflows/build-apk.yml)
+[![Coverage](https://img.shields.io/badge/coverage-reports-blue)](https://github.com/micer/Distro/actions/workflows/build-apk.yml)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.2.21-blue.svg?logo=kotlin)](https://kotlinlang.org)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 A modern Android application for distributing APK files to internal testers. Built with Kotlin and Jetpack Compose.
 
 ## Features

@@ -48,8 +48,8 @@ jobs:
             exit 1
           fi
 
-      - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --continue
+      - name: Run Unit Tests with Coverage
+        run: ./gradlew jacocoTestReport --continue
 
       - name: Upload Unit Test Results
         if: always()
@@ -66,6 +66,29 @@ jobs:
           name: unit-test-xml
           path: app/build/test-results/
           retention-days: 7
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: app/build/reports/jacoco/jacocoTestReport/html/
+          retention-days: 30
+
+      - name: Add Coverage Summary to GitHub Step Summary
+        if: always()
+        run: |
+          echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f app/build/reports/jacoco/jacocoTestReport/index.html ]; then
+            echo "✅ Coverage report generated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Download Reports" >> $GITHUB_STEP_SUMMARY
+            echo "- [Unit Test Results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) (Artifacts section)" >> $GITHUB_STEP_SUMMARY
+            echo "- Coverage HTML Report: \\"coverage-report\\" artifact" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Coverage report not found" >> $GITHUB_STEP_SUMMARY
+          fi
 
   build:
     name: Build APK

@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.ksp)
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
+    jacoco
 }
 
 android {
@@ -43,6 +44,10 @@ android {
             )
             signingConfig = signingConfigs.findByName("release")
         }
+        debug {
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -56,6 +61,58 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+// JaCoCo configuration
+buildscript {
+    dependencies {
+        classpath("org.jacoco:org.jacoco.core:0.8.11")
+    }
+}
+
+// JaCoCo task for unit test coverage report
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/databinding/**/*.class",
+        "**/android/databinding/*Binding.class",
+        "**/android/databinding/*",
+        "**/androidx/databinding/*",
+        "**/BR.*",
+        "**/eu/micer/distro/DistroApp.*",
+        "**/eu/micer/distro/MainActivity.*"
+    )
+
+    val debugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug").get()) {
+        exclude(fileFilter)
+    }
+    val javaDebugTree = fileTree(layout.buildDirectory.dir("intermediates/javac/debug").get()) {
+        exclude(fileFilter)
+    }
+
+    sourceDirectories.setFrom(
+        files(
+            "src/main/java",
+            "src/main/kotlin"
+        )
+    )
+    classDirectories.setFrom(files(debugTree, javaDebugTree))
+    executionData.setFrom(fileTree(layout.buildDirectory.get()) {
+        include("jacoco/testDebugUnitTest.exec")
+        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
 }
 
 dependencies {
