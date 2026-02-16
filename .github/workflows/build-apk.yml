@@ -36,14 +36,26 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Decode google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
+            echo "google-services.json created from secret"
+          else
+            echo "Warning: GOOGLE_SERVICES_JSON secret not found"
+            exit 1
+          fi
+
       - name: Setup Signing for Release
         if: github.event.inputs.release_type == 'release' || startsWith(github.ref, 'refs/tags/v')
         env:
           ENCODED_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           if [ -n "$ENCODED_KEYSTORE" ]; then
-            echo "$ENCODED_KEYSTORE" | base64 -d > release.keystore
-            echo "KEYSTORE_PATH=release.keystore" >> $GITHUB_ENV
+            echo "$ENCODED_KEYSTORE" | base64 -d > app/distro.keystore
+            echo "KEYSTORE_PATH=distro.keystore" >> $GITHUB_ENV
             echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
             echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
             echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
