@@ -45,12 +45,20 @@ User Action → Compose UI → ViewModel → Repository → Room Database
 ### Database Schema
 
 ```kotlin
-@Entity(tableName = "app_configs")
+@Entity(
+    tableName = "app_configs",
+    indices = [Index(value = ["urlPattern"], unique = true)]
+)
 data class AppConfig(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val name: String,
-    val urlPattern: String
+    val name: String, // User-provided name or extracted from APK
+    val urlPattern: String,
+    val packageName: String? = null, // Extracted from APK (e.g., "com.example.app")
+    val versionName: String? = null, // Extracted from APK (e.g., "1.2.3")
+    val versionCode: Long? = null, // Extracted from APK
+    val appLabel: String? = null, // Extracted app label from APK
+    val quickLinks: String? = null // Serialized JSON list of QuickLink objects
 )
 ```
 
@@ -63,17 +71,21 @@ The app uses Kotlin Flows for reactive state management:
 
 ## Future Enhancement Ideas
 
+### Implemented
+1. **Edit App**: Edit existing app configurations (name, URL pattern, package name, quick links)
+2. **Import Apps**: Import multiple apps from JSON file via file picker
+
 ### Short Term
-1. **Edit App**: Add ability to edit existing app configurations
-2. **Validation**: Add URL validation before saving
-3. **Error Retry**: Allow users to retry failed downloads
-4. **Clear Cache**: Button to clear downloaded APK files
+1. **Validation**: Add URL validation before saving
+2. **Error Retry**: Allow users to retry failed downloads
+3. **Clear Cache**: Button to clear downloaded APK files
+4. **Export Apps**: Export app configurations to JSON file
 
 ### Medium Term
 1. **Version History**: Track previously downloaded versions
 2. **Search/Filter**: Search through app list
 3. **Sorting**: Sort apps by name or date added
-4. **Export/Import**: Share configurations via JSON
+4. **Bulk Operations**: Download/install/uninstall multiple apps at once
 
 ### Long Term
 1. **Multi-Placeholder**: Support `{version}`, `{build}`, `{flavor}` patterns
@@ -132,6 +144,7 @@ The app uses Kotlin Flows for reactive state management:
 3. **No Validation**: Doesn't verify APK before installation
 4. **Manual Version Entry**: User must know version names
 5. **No Authentication**: No login or user management
+6. **No Export**: Import is available but export is not yet implemented
 
 ## Code Style Guidelines
 

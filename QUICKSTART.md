@@ -35,7 +35,7 @@
 1. Launch the app - you'll see an empty state
 2. Tap the blue **+** button in the bottom right
 3. Fill in the configuration:
-   - **App Name**: Give it a recognizable name (e.g., "My Test App")
+   - **App Name**: Optional - leave empty to auto-fill from APK, or enter a custom name
    - **URL Pattern**: Enter your APK URL with `{version}` placeholder
    
    Example:
@@ -102,11 +102,12 @@ Distro/
 ### Key Files to Understand
 
 1. **MainActivity.kt**: Navigation setup and app entry point
-2. **AppViewModel.kt**: Business logic and state management
-3. **MainScreen.kt**: Home screen showing app list
-4. **AppConfigScreen.kt**: Individual app configuration and download screen
-5. **DownloadManager.kt**: OkHttp-based download implementation
-6. **ApkInstaller.kt**: Android APK installation handling
+2. **AppViewModel.kt**: Business logic, state management, and bulk operations
+3. **MainScreen.kt**: Home screen showing app list with installation status
+4. **AppConfigScreen.kt**: App management screen (add, edit, delete, import)
+5. **AddEditAppScreen.kt**: Add/Edit individual app configuration
+6. **DownloadManager.kt**: OkHttp-based download implementation with metadata parsing
+7. **ApkInstaller.kt**: Android APK installation handling
 
 ### Building Different Variants
 

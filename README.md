@@ -35,9 +35,9 @@ app/src/main/java/eu/micer/distro/
 │   ├── AppDatabase.kt          # Room database with migrations
 │   └── AppRepository.kt        # Data repository
 ├── ui/
-│   ├── MainScreen.kt           # App list screen with installation status
-│   ├── AddEditAppScreen.kt     # Add/Edit app configuration
-│   ├── AppConfigScreen.kt      # Individual app configuration screen
+│   ├── MainScreen.kt           # App list screen with installation status and bulk operations
+│   ├── AddEditAppScreen.kt     # Add/Edit app configuration with quick links support
+│   ├── AppConfigScreen.kt      # App management screen with import functionality
 │   └── theme/                  # Material 3 theme files
 ├── viewmodel/
 │   └── AppViewModel.kt         # Business logic and state management
@@ -60,7 +60,7 @@ On first launch, the app will be empty. Tap the **+** button to add a new app co
 
 The `{version}` placeholder will be replaced with the actual version you enter later.
 
-**New!** The app name is now optional. When you download an APK for the first time, the app will automatically extract the official app name, package name, and version information from the APK file.
+The app name is optional. When you download an APK for the first time, the app will automatically extract the official app name, package name, and version information from the APK file.
 
 ### 2. Download and Install
 
@@ -82,7 +82,7 @@ The main screen now displays comprehensive information for each app:
 ### 4. Manage Apps
 
 - **Delete**: Tap the trash icon on any app card
-- **Edit**: Long-press on an app to edit (coming soon)
+- **Edit**: Tap the settings icon in the top bar to access the app management screen where you can add, edit, or delete apps
 
 ## Building the Project
 
@@ -129,18 +129,21 @@ The app stores all configurations locally in a Room database. No backend or exte
 - **Installation status tracking**: Real-time detection of which apps are installed and their versions
 - **Optional app names with auto-fill**: App names are optional in configuration and auto-filled from APK metadata
 - **Enhanced display**: Main screen shows installation status, installed version, and last downloaded version for each app
+- **Quick links support**: Configure preset download links (latest, RC, nightly) for quick access
+- **Bulk operations**: Download, install, or uninstall multiple apps simultaneously
+- **JSON import**: Import app configurations from JSON files
 
 ## Future Enhancements
 
 Potential features for future versions:
 
-- Edit existing app configurations
 - Version history tracking
 - QR code generation for easy sharing
 - Multiple placeholder support (e.g., `{version}`, `{build}`, `{environment}`)
 - APK signature verification
 - Push notifications for new versions
 - User authentication
+- Export configurations to JSON
 
 ## License
 
