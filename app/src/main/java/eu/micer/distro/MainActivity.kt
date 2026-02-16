@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import eu.micer.distro.ui.AddEditAppScreen
 import eu.micer.distro.ui.AppConfigScreen
 import eu.micer.distro.ui.MainScreen

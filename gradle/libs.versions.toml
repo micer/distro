@@ -7,6 +7,7 @@ composeNavigation = "2.9.6"
 coreKtx = "1.17.0"
 coroutines = "1.10.2"
 espressoCore = "3.7.0"
+firebaseBom = "34.9.0"
 iconsFontAwesomeBrandsAndroid = "2.2.1"
 iconsFontAwesomeRegularAndroid = "2.2.1"
 iconsFontAwesomeSolidAndroid = "2.2.1"
@@ -25,6 +26,9 @@ timber = "5.0.1"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 composables-icons-font-awesome-brands-android = { module = "com.composables:icons-font-awesome-brands-android", version.ref = "iconsFontAwesomeBrandsAndroid" }
 composables-icons-font-awesome-regular-android = { module = "com.composables:icons-font-awesome-regular-android", version.ref = "iconsFontAwesomeRegularAndroid" }
+firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 icons-font-awesome-solid-android = { module = "com.composables:icons-font-awesome-solid-android", version.ref = "iconsFontAwesomeSolidAndroid" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

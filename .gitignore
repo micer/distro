@@ -56,3 +56,6 @@ Thumbs.db
 
 # JSON config files
 json-configs-local/
+
+# Firebase configuration
+google-services.json
