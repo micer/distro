@@ -218,7 +218,7 @@ private var bulkDownloadJob: Job? = null
                 totalCount = downloadItems.size
             )
 
-            // Semaphore to limit concurrent downloads to 3
+            // Semaphore to limit concurrent downloads
             val semaphore = Semaphore(10)
 
             // Launch parallel downloads
